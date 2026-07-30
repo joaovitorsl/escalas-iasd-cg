@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Gerenciador de escalas do time de música — IASD Central de Campina Grande." />
+  <meta name="robots" content="noindex" />
+  <title>Escalas · IASD Central de Campina Grande</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    // aplica o tema antes do primeiro paint, pra não piscar claro->escuro
+    (function () {
+      var salvo = localStorage.getItem("escalasTema");
+      if (salvo) document.documentElement.setAttribute("data-theme", salvo);
+    })();
+  </script>
+</head>
+<body>
+
+  <header class="esc-top">
+    <div class="esc-brand">
+      <strong>Escalas</strong>
+      <span class="tag">IASD Central de Campina Grande</span>
+    </div>
+    <div class="esc-persist">
+      <span class="esc-status" id="saveStatus">carregando…</span>
+      <button class="esc-icon-btn" id="btnTema" type="button" title="Alternar tema claro/escuro">🌙</button>
+      <button class="btn-outline esc-btn-sm" id="btnAbrir" type="button">Abrir arquivo</button>
+      <button class="btn-fill esc-btn-sm" id="btnSalvar" type="button">Salvar</button>
+    </div>
+  </header>
+
+  <nav class="esc-tabs" id="tabsNav">
+    <button class="esc-tab active" data-tab="escalas" type="button">Escalas</button>
+    <button class="esc-tab" data-tab="equipe" type="button">Equipe</button>
+    <button class="esc-tab" data-tab="config" type="button">Configurações</button>
+  </nav>
+
+  <main class="esc-main">
+
+    <!-- ───── ESCALAS ───── -->
+    <section class="esc-panel active" id="panel-escalas">
+      <div class="esc-panel-head">
+        <h2 class="section-label">Próximos cultos</h2>
+        <div class="esc-panel-actions">
+          <div class="esc-view-toggle">
+            <button class="esc-view-btn active" id="btnVerLista" type="button">Lista</button>
+            <button class="esc-view-btn" id="btnVerCalendario" type="button">Calendário</button>
+          </div>
+          <label class="esc-check"><input type="checkbox" id="chkPassados" /> mostrar cultos passados</label>
+          <button class="btn-outline esc-btn-sm" id="btnNovoEspecial" type="button">+ Culto especial</button>
+        </div>
+      </div>
+
+      <div class="esc-form-inline" id="especialForm" hidden>
+        <input type="text" id="especialNome" placeholder="Nome do culto (ex: Culto de Ano Novo)" />
+        <input type="date" id="especialData" />
+        <input type="time" id="especialHora" value="19:30" />
+        <select id="especialModelo">
+          <option value="">sem modelo de programa</option>
+        </select>
+        <button class="btn-fill esc-btn-sm" id="especialSalvar" type="button">Adicionar</button>
+        <button class="btn-outline esc-btn-sm" id="especialCancelar" type="button">Cancelar</button>
+      </div>
+
+      <div id="cultosList" class="esc-cultos-list"></div>
+
+      <div class="esc-calendario" id="calendarioView" hidden>
+        <div class="esc-cal-nav">
+          <button class="esc-icon-btn" id="calMesAnterior" type="button" title="Mês anterior">‹</button>
+          <span class="esc-cal-mes" id="calMesLabel"></span>
+          <button class="esc-icon-btn" id="calMesProximo" type="button" title="Próximo mês">›</button>
+        </div>
+        <div class="esc-cal-semana">
+          <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+        </div>
+        <div class="esc-cal-grid" id="calendarioGrid"></div>
+      </div>
+    </section>
+
+    <!-- ───── EQUIPE ───── -->
+    <section class="esc-panel" id="panel-equipe">
+      <div class="esc-panel-head">
+        <h2 class="section-label">Equipe</h2>
+        <button class="btn-outline esc-btn-sm" id="btnNovaPessoa" type="button">+ Adicionar pessoa</button>
+      </div>
+
+      <div class="esc-form-card" id="pessoaForm" hidden>
+        <input type="hidden" id="pessoaId" />
+        <div class="esc-form-row">
+          <label>Nome <input type="text" id="pessoaNome" placeholder="Nome completo" /></label>
+          <label>Gênero
+            <select id="pessoaGenero">
+              <option value="M">Homem</option>
+              <option value="F">Mulher</option>
+            </select>
+          </label>
+        </div>
+        <div class="esc-form-row">
+          <div>
+            <span class="esc-form-label">Instrumentos</span>
+            <div class="esc-checks" id="pessoaInstrumentos"></div>
+          </div>
+        </div>
+        <div class="esc-form-row">
+          <label class="esc-check"><input type="checkbox" id="pessoaVocal" /> Canta (vocal)</label>
+          <label id="pessoaNaipeWrap">Naipe
+            <select id="pessoaNaipe">
+              <option value="">—</option>
+              <option value="soprano">Soprano</option>
+              <option value="contralto">Contralto</option>
+              <option value="tenor">Tenor</option>
+              <option value="barítono/baixo">Barítono/Baixo</option>
+            </select>
+          </label>
+          <label class="esc-check"><input type="checkbox" id="pessoaAtivo" checked /> Ativo(a) na equipe</label>
+        </div>
+        <div class="esc-form-row">
+          <div>
+            <span class="esc-form-label">Nunca disponível às</span>
+            <div class="esc-checks" id="pessoaDiasIndisponiveis">
+              <label class="esc-check"><input type="checkbox" data-dia="0" /> Domingo</label>
+              <label class="esc-check"><input type="checkbox" data-dia="3" /> Quarta</label>
+              <label class="esc-check"><input type="checkbox" data-dia="6" /> Sábado</label>
+            </div>
+          </div>
+        </div>
+        <div class="esc-form-row">
+          <label class="esc-check"><input type="checkbox" id="pessoaGostaSolo" /> Gosta de fazer solo/música especial</label>
+          <label class="esc-check"><input type="checkbox" id="pessoaPodeMinistrar" /> Se sente à vontade para ministrar (liderar o culto)</label>
+        </div>
+        <div class="esc-form-row">
+          <label class="esc-check"><input type="checkbox" id="pessoaExterno" /> Convidado(a) externo(a) (não é da igreja — só é escalado(a) pra tapar buraco, nunca por padrão)</label>
+        </div>
+        <label>Contato (telefone/WhatsApp/e-mail) <input type="text" id="pessoaContato" placeholder="Ex: (83) 99999-9999" /></label>
+        <label>Observações <textarea id="pessoaObs" rows="2" placeholder="Opcional"></textarea></label>
+        <div class="esc-form-actions">
+          <button class="btn-fill esc-btn-sm" id="pessoaSalvar" type="button">Salvar</button>
+          <button class="btn-outline esc-btn-sm" id="pessoaCancelar" type="button">Cancelar</button>
+        </div>
+      </div>
+
+      <div id="membrosList" class="esc-membros-list"></div>
+    </section>
+
+    <!-- ───── CONFIGURAÇÕES ───── -->
+    <section class="esc-panel" id="panel-config">
+      <div class="esc-panel-head"><h2 class="section-label">Tipos de culto</h2></div>
+      <div id="tiposCultoList" class="esc-tipos-list"></div>
+      <button class="btn-outline esc-btn-sm" id="btnNovoTipo" type="button">+ Tipo de culto</button>
+
+      <div class="esc-panel-head" style="margin-top:52px">
+        <h2 class="section-label">Grupos musicais convidados</h2>
+      </div>
+      <p class="esc-help">
+        Cadastre aqui grupos/corais/bandas de fora que às vezes assumem o culto inteiro
+        (ex: "Coral Jovem", "Grupo Bless"). No card do culto, em "Grupo musical", dá pra
+        escolher um deles — aí não é preciso escalar instrumentos e vozes individualmente
+        naquele dia.
+      </p>
+      <div id="gruposMusicaisList" class="esc-tipos-list"></div>
+      <button class="btn-outline esc-btn-sm" id="btnNovoGrupo" type="button">+ Grupo musical</button>
+
+      <div class="esc-panel-head" style="margin-top:52px">
+        <h2 class="section-label">Temas de culto</h2>
+      </div>
+      <p class="esc-help">
+        Cultos temáticos (Santa Ceia, Semana Jovem, GOJEP, 13º Sábado, etc.). Cadastre
+        aqui os temas possíveis — no card do culto, dá pra marcar qual tema se aplica.
+      </p>
+      <div id="temasCultoList" class="esc-tipos-list"></div>
+      <button class="btn-outline esc-btn-sm" id="btnNovoTema" type="button">+ Tema</button>
+
+      <div class="esc-panel-head" style="margin-top:52px">
+        <h2 class="section-label">Modelos de programa (ordem do culto)</h2>
+      </div>
+      <p class="esc-help">
+        Cada tipo de culto recorrente (acima) usa um destes modelos como ponto de partida
+        do programa — e o programa de cada culto continua 100% editável depois. Crie
+        modelos novos pra ocasiões especiais (ex: uma "Doxologia" ou uma ordem de Santa
+        Ceia diferente da usual) e escolha-os ao criar um culto especial ou num tipo de
+        culto acima.
+      </p>
+      <div id="modelosProgramaList" class="esc-modelos-list"></div>
+      <button class="btn-outline esc-btn-sm" id="btnNovoModelo" type="button">+ Modelo de programa</button>
+
+      <div class="esc-panel-head" style="margin-top:52px">
+        <h2 class="section-label">Dados &amp; arquivo local</h2>
+      </div>
+      <p class="esc-help">
+        Tudo aqui fica guardado só neste navegador (localStorage) até você clicar em
+        <strong style="color:var(--text)">Salvar</strong> — aí sim os dados viram um arquivo
+        <code>.json</code> no seu computador. Não existe servidor nem banco de dados: se a
+        equipe usa mais de um computador, é preciso compartilhar esse arquivo (ex: por
+        WhatsApp/Drive) e abrir com "Abrir arquivo" em cada lugar.
+      </p>
+      <div class="esc-data-actions">
+        <button class="btn-outline esc-btn-sm" id="btnBaixarCopia" type="button">Baixar cópia (.json)</button>
+        <button class="btn-outline esc-btn-sm" id="btnExemplo" type="button">Carregar dados de exemplo</button>
+        <button class="btn-outline esc-btn-sm esc-danger" id="btnLimpar" type="button">Limpar todos os dados</button>
+      </div>
+    </section>
+
+  </main>
+
+  <input type="file" id="fileInput" accept="application/json" hidden />
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

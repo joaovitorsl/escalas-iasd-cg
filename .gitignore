@@ -1,0 +1,3 @@
+# arquivos de dados exportados pelo app (dados reais da equipe — não fazem
+# parte do código-fonte e não devem ir pro histórico do git)
+*.json
