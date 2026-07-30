@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
   <script>
     // aplica o tema antes do primeiro paint, pra não piscar claro->escuro
     (function () {
@@ -36,6 +37,9 @@
   <nav class="esc-tabs" id="tabsNav">
     <button class="esc-tab active" data-tab="escalas" type="button">Escalas</button>
     <button class="esc-tab" data-tab="equipe" type="button">Equipe</button>
+    <button class="esc-tab" data-tab="modelos" type="button">Doxologias</button>
+    <button class="esc-tab" data-tab="temas" type="button">Temas</button>
+    <button class="esc-tab" data-tab="grupos" type="button">Grupos</button>
     <button class="esc-tab" data-tab="config" type="button">Configurações</button>
   </nav>
 
@@ -146,15 +150,37 @@
       <div id="membrosList" class="esc-membros-list"></div>
     </section>
 
-    <!-- ───── CONFIGURAÇÕES ───── -->
-    <section class="esc-panel" id="panel-config">
-      <div class="esc-panel-head"><h2 class="section-label">Tipos de culto</h2></div>
-      <div id="tiposCultoList" class="esc-tipos-list"></div>
-      <button class="btn-outline esc-btn-sm" id="btnNovoTipo" type="button">+ Tipo de culto</button>
+    <!-- ───── DOXOLOGIAS (modelos de programa) ───── -->
+    <section class="esc-panel" id="panel-modelos">
+      <div class="esc-panel-head"><h2 class="section-label">Modelos de programa (ordem do culto)</h2></div>
+      <p class="esc-help">
+        Cada tipo de culto recorrente (em Configurações) usa um destes modelos como ponto de
+        partida do programa — e o programa de cada culto continua 100% editável depois. Crie
+        modelos novos pra ocasiões especiais (ex: uma "Doxologia" ou uma ordem de Santa Ceia
+        diferente da usual) e escolha-os ao criar um culto especial ou num tipo de culto.
+        "Baixar modelo CSV"/"importar CSV" (aqui e em cada culto) servem pra preencher o
+        programa em lote: baixe o CSV, peça pra alguma IA completar a partir de uma foto/PDF
+        do programa (mantendo as colunas <code>Tipo,Hora,Momento,Responsável,Músicas</code> —
+        várias músicas na mesma célula separadas por <code>|</code>) e importe de volta.
+      </p>
+      <div id="modelosProgramaList" class="esc-modelos-list"></div>
+      <button class="btn-outline esc-btn-sm" id="btnNovoModelo" type="button">+ Modelo de programa</button>
+    </section>
 
-      <div class="esc-panel-head" style="margin-top:52px">
-        <h2 class="section-label">Grupos musicais convidados</h2>
-      </div>
+    <!-- ───── TEMAS ───── -->
+    <section class="esc-panel" id="panel-temas">
+      <div class="esc-panel-head"><h2 class="section-label">Temas de culto</h2></div>
+      <p class="esc-help">
+        Cultos temáticos (Santa Ceia, Semana Jovem, GOJEP, 13º Sábado, etc.). Cadastre
+        aqui os temas possíveis — no card do culto, dá pra marcar qual tema se aplica.
+      </p>
+      <div id="temasCultoList" class="esc-tipos-list"></div>
+      <button class="btn-outline esc-btn-sm" id="btnNovoTema" type="button">+ Tema</button>
+    </section>
+
+    <!-- ───── GRUPOS ───── -->
+    <section class="esc-panel" id="panel-grupos">
+      <div class="esc-panel-head"><h2 class="section-label">Grupos musicais convidados</h2></div>
       <p class="esc-help">
         Cadastre aqui grupos/corais/bandas de fora que às vezes assumem o culto inteiro
         (ex: "Coral Jovem", "Grupo Bless"). No card do culto, em "Grupo musical", dá pra
@@ -163,39 +189,23 @@
       </p>
       <div id="gruposMusicaisList" class="esc-tipos-list"></div>
       <button class="btn-outline esc-btn-sm" id="btnNovoGrupo" type="button">+ Grupo musical</button>
+    </section>
 
-      <div class="esc-panel-head" style="margin-top:52px">
-        <h2 class="section-label">Temas de culto</h2>
-      </div>
-      <p class="esc-help">
-        Cultos temáticos (Santa Ceia, Semana Jovem, GOJEP, 13º Sábado, etc.). Cadastre
-        aqui os temas possíveis — no card do culto, dá pra marcar qual tema se aplica.
-      </p>
-      <div id="temasCultoList" class="esc-tipos-list"></div>
-      <button class="btn-outline esc-btn-sm" id="btnNovoTema" type="button">+ Tema</button>
-
-      <div class="esc-panel-head" style="margin-top:52px">
-        <h2 class="section-label">Modelos de programa (ordem do culto)</h2>
-      </div>
-      <p class="esc-help">
-        Cada tipo de culto recorrente (acima) usa um destes modelos como ponto de partida
-        do programa — e o programa de cada culto continua 100% editável depois. Crie
-        modelos novos pra ocasiões especiais (ex: uma "Doxologia" ou uma ordem de Santa
-        Ceia diferente da usual) e escolha-os ao criar um culto especial ou num tipo de
-        culto acima.
-      </p>
-      <div id="modelosProgramaList" class="esc-modelos-list"></div>
-      <button class="btn-outline esc-btn-sm" id="btnNovoModelo" type="button">+ Modelo de programa</button>
+    <!-- ───── CONFIGURAÇÕES ───── -->
+    <section class="esc-panel" id="panel-config">
+      <div class="esc-panel-head"><h2 class="section-label">Tipos de culto</h2></div>
+      <div id="tiposCultoList" class="esc-tipos-list"></div>
+      <button class="btn-outline esc-btn-sm" id="btnNovoTipo" type="button">+ Tipo de culto</button>
 
       <div class="esc-panel-head" style="margin-top:52px">
         <h2 class="section-label">Dados &amp; arquivo local</h2>
       </div>
       <p class="esc-help">
-        Tudo aqui fica guardado só neste navegador (localStorage) até você clicar em
-        <strong style="color:var(--text)">Salvar</strong> — aí sim os dados viram um arquivo
-        <code>.json</code> no seu computador. Não existe servidor nem banco de dados: se a
-        equipe usa mais de um computador, é preciso compartilhar esse arquivo (ex: por
-        WhatsApp/Drive) e abrir com "Abrir arquivo" em cada lugar.
+        As alterações sincronizam automaticamente entre todos os dispositivos (nuvem
+        compartilhada da equipe) — não é preciso "Salvar" pra outras pessoas verem. O botão
+        <strong style="color:var(--text)">Salvar</strong>/"Baixar cópia" serve pra guardar um
+        arquivo <code>.json</code> de backup no seu computador, e "Abrir arquivo" pra restaurar
+        um backup (isso substitui os dados de todo mundo, use com cuidado).
       </p>
       <div class="esc-data-actions">
         <button class="btn-outline esc-btn-sm" id="btnBaixarCopia" type="button">Baixar cópia (.json)</button>
@@ -207,6 +217,7 @@
   </main>
 
   <input type="file" id="fileInput" accept="application/json" hidden />
+  <input type="file" id="csvInput" accept=".csv,text/csv" hidden />
 
   <script type="module" src="app.js"></script>
 </body>

@@ -107,6 +107,16 @@ const NOMES_MODELO_PADRAO = {
   "sab-manha": "Sábado de Manhã",
 };
 
+/* só cultos até esta data nascem com o programa já preenchido (conteúdo real,
+   com nomes/músicas de quem já está combinado) — depois disso o time ainda
+   não sabe o que vai rolar, então o culto nasce com o programa "zerado" e é
+   preenchido conforme a data se aproxima. Cultos que já tinham sido gerados
+   além dessa data com o programa padrão (por engano, antes dessa correção)
+   são limpos automaticamente na normalização — mas só se ninguém já tiver
+   editado o conteúdo (ver programaIgualAoModelo), pra nunca apagar edição
+   manual de verdade. */
+const HORIZONTE_PROGRAMA_ATE_ISO = "2026-08-01";
+
 function nomeInstrumento(id) {
   return INSTRUMENTOS.find((i) => i.id === id)?.nome || id;
 }
@@ -219,6 +229,17 @@ function defaultPrograma(modeloId) {
       : { id: uid(), tipo: "momento", hora: item.hora, nome: item.nome, responsavel: item.responsavel, musicas: [...(item.musicas || [])] }
   );
 }
+/* de qual modelo um culto deveria "voltar ao padrão" (botão Limpar programa):
+   especiais guardam o modelo escolhido na criação; recorrentes derivam do
+   tipo de culto (mesmo que não tenham o campo salvo, ex: cultos antigos) */
+function modeloIdDoCulto(culto) {
+  if (culto.modeloProgramaId) return culto.modeloProgramaId;
+  if (culto.tipoCultoId) {
+    const tipo = state.tiposCulto.find((t) => t.id === culto.tipoCultoId);
+    return (tipo && tipo.modeloProgramaId) || culto.tipoCultoId;
+  }
+  return null;
+}
 function chaveRemovido(tipoCultoId, data) {
   return tipoCultoId + "|" + data;
 }
@@ -271,6 +292,26 @@ function normalizarModeloPrograma(m) {
       : [],
   };
 }
+/* compara o programa atual de um culto com o modelo de origem, item a item
+   (ignorando os ids, que são gerados de novo a cada cópia) — usado só pra
+   saber se um programa distante ainda é "o padrão intocado" (pode ser
+   zerado com segurança) ou já foi editado por alguém (não mexe) */
+function programaIgualAoModelo(programa, modelo) {
+  if (!modelo) return false;
+  const base = modelo.itens || [];
+  if (!programa || programa.length !== base.length) return false;
+  return programa.every((item, idx) => {
+    const ref = base[idx];
+    if (!ref || item.tipo !== ref.tipo) return false;
+    if (item.tipo === "secao") return (item.titulo || "") === (ref.titulo || "");
+    return (
+      (item.hora || "") === (ref.hora || "") &&
+      (item.nome || "") === (ref.nome || "") &&
+      (item.responsavel || "") === (ref.responsavel || "") &&
+      JSON.stringify(item.musicas || []) === JSON.stringify(ref.musicas || [])
+    );
+  });
+}
 function normalizarEstado(bruto) {
   bruto = bruto || {};
   // computado localmente (não lê o `state` global, que ainda não existe
@@ -299,14 +340,35 @@ function normalizarEstado(bruto) {
     if (!t.modeloProgramaId) t.modeloProgramaId = t.id;
   });
 
-  const cultos = (bruto.cultos || []).map((c) => ({ ministranteId: null, especial: false, grupoMusicalId: null, temaId: null, ...c, programa: Array.isArray(c.programa) ? c.programa : [] }));
-  // cultos criados antes do recurso de "programa" existir (ou vindos de um
-  // arquivo antigo) ficam com programa vazio — preenche com o modelo padrão
-  // do tipo de culto, já que o objetivo é só completar pessoas/músicas depois
+  const cultos = (bruto.cultos || []).map((c) => ({
+    ministranteId: null,
+    especial: false,
+    grupoMusicalId: null,
+    temaId: null,
+    modeloProgramaId: null,
+    ...c,
+    programa: Array.isArray(c.programa) ? c.programa : [],
+    ensaioData: c.ensaioData || "",
+    ensaioHora: c.ensaioHora || "",
+  }));
   cultos.forEach((c) => {
-    if (!c.especial && !c.programa.length && c.tipoCultoId) {
+    if (!c.especial && c.tipoCultoId) {
       const tipo = tiposCulto.find((t) => t.id === c.tipoCultoId);
-      c.programa = programaDoModelo((tipo && tipo.modeloProgramaId) || c.tipoCultoId);
+      const modeloId = (tipo && tipo.modeloProgramaId) || c.tipoCultoId;
+      const modelo = modelosPrograma.find((m) => m.id === modeloId);
+      if (c.data > HORIZONTE_PROGRAMA_ATE_ISO) {
+        // limpeza pontual: culto distante que ainda está com o programa
+        // padrão intocado (gerado em massa por engano antes dessa correção)
+        // volta a ficar zerado — edições manuais nunca são mexidas aqui
+        if (c.programa.length && programaIgualAoModelo(c.programa, modelo)) {
+          c.programa = [];
+        }
+      } else if (!c.programa.length) {
+        // cultos criados antes do recurso de "programa" existir (ou vindos de
+        // um arquivo antigo) ficam com programa vazio — preenche com o
+        // modelo padrão do tipo de culto, já que estão dentro do horizonte
+        c.programa = programaDoModelo(modeloId);
+      }
     }
     if (c.tipoCultoId && HORAS_ANTIGAS_INCORRETAS[c.tipoCultoId] && c.hora === HORAS_ANTIGAS_INCORRETAS[c.tipoCultoId]) {
       c.hora = HORAS_CORRETAS[c.tipoCultoId];
@@ -337,8 +399,10 @@ let fileHandle = null;
 let fileName = null;
 let dirty = false;
 let lastSavedAt = null;
+let cultoFiltroId = null; // quando setado, a lista mostra só esse culto (vindo de um clique no calendário)
 const suggestOpen = new Set();
 const programaAberto = new Set();
+const programaAutoAberto = new Set(); // cultos cujo programa já foi auto-aberto por causa do "ao vivo" (não força de novo se a pessoa fechar)
 
 /* ── persistência local ── */
 function loadLocal() {
@@ -355,12 +419,33 @@ function loadLocal() {
   }
   return novoEstado();
 }
-async function persistLocal() {
+/* escrever no Firestore a cada tecla digitada fazia o onSnapshot dessa mesma
+   escrita voltar e forçar um render() completo a cada caractere — no celular
+   isso reconstrói o campo que a pessoa está digitando e derruba o teclado.
+   Por isso: guarda local é imediato (síncrono), e o envio pra nuvem é
+   agrupado (debounce) — só sai de fato ~700ms depois da última mudança. */
+const FIRESTORE_DEBOUNCE_MS = 700;
+let firestoreDebounceTimer = null;
+let localWriteSeq = 0;
+let ultimoSeqEnviado = -1;
+
+function persistLocal() {
   try {
-    await setDoc(docRef, state);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn("Falha ao guardar neste navegador", e);
+  }
+  clearTimeout(firestoreDebounceTimer);
+  firestoreDebounceTimer = setTimeout(enviarParaNuvem, FIRESTORE_DEBOUNCE_MS);
+}
+async function enviarParaNuvem() {
+  firestoreDebounceTimer = null;
+  const seq = ++localWriteSeq;
+  ultimoSeqEnviado = seq;
+  try {
+    await setDoc(docRef, { ...state, _seq: seq });
   } catch (e) {
     console.error("Erro ao salvar na nuvem: ", e);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); 
   }
 }
 function markDirty() {
@@ -455,17 +540,138 @@ async function salvar() {
   updateSaveStatus();
 }
 
-function baixarCopia() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+function baixarTextoComoArquivo(texto, nomeArquivo, tipoMime) {
+  const blob = new Blob([texto], { type: tipoMime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = fileName || "escalas-iasd-cg.json";
+  a.download = nomeArquivo;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+function baixarCopia() {
+  baixarTextoComoArquivo(JSON.stringify(state, null, 2), fileName || "escalas-iasd-cg.json", "application/json");
+}
+
+/* ── import/export de programa via CSV ──
+   pensado pra um fluxo tipo "manda uma foto ou PDF do programa impresso pra
+   uma IA, pede pra ela preencher esse CSV no mesmo formato, e importa aqui"
+   — evita digitar tudo à mão. Colunas fixas, na ordem:
+   Tipo (secao|momento), Hora, Momento/Título, Responsável, Músicas
+   (várias músicas na mesma célula, separadas por " | "). */
+const CSV_CABECALHO = ["Tipo", "Hora", "Momento", "Responsável", "Músicas"];
+
+function csvEscapeCelula(valor) {
+  const s = String(valor ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function programaParaCsv(itens) {
+  const linhas = [CSV_CABECALHO.join(",")];
+  (itens || []).forEach((item) => {
+    if (item.tipo === "secao") {
+      linhas.push(["secao", "", item.titulo || "", "", ""].map(csvEscapeCelula).join(","));
+    } else {
+      linhas.push(
+        ["momento", item.hora || "", item.nome || "", item.responsavel || "", (item.musicas || []).join(" | ")]
+          .map(csvEscapeCelula)
+          .join(",")
+      );
+    }
+  });
+  return linhas.join("\r\n");
+}
+function parseCsvLinha(linha) {
+  const celulas = [];
+  let atual = "";
+  let dentroAspas = false;
+  for (let i = 0; i < linha.length; i++) {
+    const c = linha[i];
+    if (dentroAspas) {
+      if (c === '"' && linha[i + 1] === '"') {
+        atual += '"';
+        i++;
+      } else if (c === '"') {
+        dentroAspas = false;
+      } else {
+        atual += c;
+      }
+    } else if (c === '"') {
+      dentroAspas = true;
+    } else if (c === ",") {
+      celulas.push(atual);
+      atual = "";
+    } else {
+      atual += c;
+    }
+  }
+  celulas.push(atual);
+  return celulas;
+}
+function csvParaPrograma(texto) {
+  const linhas = texto.split(/\r?\n/).filter((l) => l.trim().length);
+  if (!linhas.length) return [];
+  // pula a linha de cabeçalho, se a 1ª célula for literalmente "tipo"
+  const inicio = /^tipo$/i.test((parseCsvLinha(linhas[0])[0] || "").trim()) ? 1 : 0;
+  const itens = [];
+  for (let i = inicio; i < linhas.length; i++) {
+    const [tipo, hora, nome, responsavel, musicas] = parseCsvLinha(linhas[i]);
+    if ((tipo || "").trim().toLowerCase() === "secao") {
+      itens.push({ id: uid(), tipo: "secao", titulo: (nome || "").trim() });
+    } else {
+      itens.push({
+        id: uid(),
+        tipo: "momento",
+        hora: (hora || "").trim(),
+        nome: (nome || "").trim(),
+        responsavel: (responsavel || "").trim(),
+        musicas: (musicas || "").split("|").map((s) => s.trim()).filter(Boolean),
+      });
+    }
+  }
+  return itens;
+}
+const CSV_EXEMPLO_PADRAO = [{ id: uid(), tipo: "momento", hora: "19:00", nome: "Nome do momento", responsavel: "", musicas: ["Música 1", "Música 2"] }];
+/* pra baixar: usa o programa/itens atuais como base (assim já sai preenchido
+   pra uma IA só completar o que falta); se ainda estiver vazio, manda um
+   exemplo mínimo só pra mostrar o formato esperado */
+function csvModeloParaCulto(culto) {
+  if (culto.programa && culto.programa.length) return culto.programa;
+  const modeloId = modeloIdDoCulto(culto);
+  return modeloId ? defaultPrograma(modeloId) : CSV_EXEMPLO_PADRAO;
+}
+
+let csvImportAlvo = null; // { tipo: "culto"|"modelo", id }
+document.getElementById("csvInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  const alvo = csvImportAlvo;
+  csvImportAlvo = null;
+  if (!file || !alvo) return;
+  const texto = await file.text();
+  const itens = csvParaPrograma(texto);
+  if (!itens.length) {
+    alert("Não encontrei nenhuma linha válida nesse CSV.");
+    return;
+  }
+  if (alvo.tipo === "culto") {
+    const culto = state.cultos.find((c) => c.id === alvo.id);
+    if (culto && confirm(`Importar ${itens.length} linha(s) e substituir o programa atual deste culto?`)) {
+      culto.programa = itens;
+      markDirty();
+      render();
+    }
+  } else if (alvo.tipo === "modelo") {
+    const modelo = state.modelosPrograma.find((m) => m.id === alvo.id);
+    if (modelo && confirm(`Importar ${itens.length} linha(s) e substituir os itens deste modelo?`)) {
+      modelo.itens = itens;
+      markDirty();
+      renderModelosPrograma();
+    }
+  }
+});
 
 function updateSaveStatus() {
   const el = document.getElementById("saveStatus");
@@ -550,6 +756,7 @@ function ensureUpcomingCultos() {
       if (state.cultosRemovidos.includes(chaveRemovido(tipo.id, data))) return;
       const existe = state.cultos.some((c) => c.tipoCultoId === tipo.id && c.data === data);
       if (!existe) {
+        const modeloId = tipo.modeloProgramaId || tipo.id;
         state.cultos.push({
           id: uid(),
           tipoCultoId: tipo.id,
@@ -558,7 +765,12 @@ function ensureUpcomingCultos() {
           nome: tipo.nome,
           especial: false,
           slots: defaultSlots(),
-          programa: defaultPrograma(tipo.modeloProgramaId || tipo.id),
+          // só preenche o programa de verdade dentro do horizonte próximo —
+          // além disso o culto nasce zerado (ver HORIZONTE_PROGRAMA_ATE_ISO)
+          programa: data <= HORIZONTE_PROGRAMA_ATE_ISO ? defaultPrograma(modeloId) : [],
+          modeloProgramaId: modeloId,
+          ensaioData: "",
+          ensaioHora: "",
           ministranteId: null,
           grupoMusicalId: null,
           temaId: null,
@@ -834,18 +1046,59 @@ function ministranteSelectHtml(culto) {
   </div>`;
 }
 
+/* ── "ao vivo": compara a hora atual com a hora de cada item do programa,
+   só pro culto de hoje — destaca o que já rolou e o que deveria estar
+   rolando agora, sem precisar abrir o programa manualmente durante o culto */
+function horaParaMinutos(hhmm) {
+  if (!hhmm || !/^\d{1,2}:\d{2}$/.test(hhmm)) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+function minutosAgora() {
+  const agora = new Date();
+  return agora.getHours() * 60 + agora.getMinutes();
+}
+function janelaCulto(culto) {
+  const horasItens = (culto.programa || [])
+    .filter((i) => i.tipo !== "secao")
+    .map((i) => horaParaMinutos(i.hora))
+    .filter((m) => m !== null);
+  const inicio = horaParaMinutos(culto.hora) ?? horasItens[0] ?? 0;
+  const ultimo = horasItens.length ? Math.max(...horasItens) : inicio;
+  // pelo menos 1h de janela, e ao menos 20min depois do último item com hora
+  const fim = Math.max(ultimo + 20, inicio + 60);
+  return { inicio, fim };
+}
+function cultoEstaAoVivo(culto) {
+  if (culto.data !== todayISO()) return false;
+  const { inicio, fim } = janelaCulto(culto);
+  const agora = minutosAgora();
+  return agora >= inicio - 10 && agora <= fim;
+}
+function indiceItemAtualPrograma(culto) {
+  const agora = minutosAgora();
+  let atualIdx = -1;
+  (culto.programa || []).forEach((item, idx) => {
+    if (item.tipo === "secao") return;
+    const m = horaParaMinutos(item.hora);
+    if (m !== null && m <= agora) atualIdx = idx;
+  });
+  return atualIdx;
+}
+
 /* ── render: Escalas · programa (ordem do culto) ── */
-function programaLinhaHtml(culto, item, idx, total) {
+function programaLinhaHtml(culto, item, idx, total, estadoTemporal) {
   const acoes = `
     <span class="esc-prog-linha-acoes">
       <button data-action="prog-subir" data-culto="${culto.id}" data-item="${item.id}" ${idx === 0 ? "disabled" : ""} title="Mover para cima">↑</button>
       <button data-action="prog-descer" data-culto="${culto.id}" data-item="${item.id}" ${idx === total - 1 ? "disabled" : ""} title="Mover para baixo">↓</button>
       <button data-action="prog-remover" data-culto="${culto.id}" data-item="${item.id}" class="esc-danger" title="Remover linha">×</button>
     </span>`;
+  const classeTemporal = estadoTemporal ? ` esc-prog-${estadoTemporal}` : "";
 
   if (item.tipo === "secao") {
     return `
-      <tr class="esc-prog-secao">
+      <tr class="esc-prog-secao${classeTemporal}">
         <td colspan="4">
           <input type="text" class="esc-prog-secao-input" value="${escapeHtml(item.titulo)}" data-action="prog-titulo" data-culto="${culto.id}" data-item="${item.id}" />
         </td>
@@ -853,18 +1106,44 @@ function programaLinhaHtml(culto, item, idx, total) {
       </tr>`;
   }
   return `
-    <tr>
+    <tr class="${classeTemporal.trim()}">
       <td><input type="text" class="esc-prog-hora" value="${escapeHtml(item.hora || "")}" placeholder="hh:mm" data-action="prog-hora" data-culto="${culto.id}" data-item="${item.id}" /></td>
       <td><input type="text" value="${escapeHtml(item.nome || "")}" placeholder="Momento" data-action="prog-nome" data-culto="${culto.id}" data-item="${item.id}" /></td>
       <td><input type="text" value="${escapeHtml(item.responsavel || "")}" placeholder="Responsável" data-action="prog-responsavel" data-culto="${culto.id}" data-item="${item.id}" /></td>
-      <td><textarea rows="1" placeholder="Uma música por linha" data-action="prog-musicas" data-culto="${culto.id}" data-item="${item.id}">${escapeHtml((item.musicas || []).join("\n"))}</textarea></td>
+      <td>${musicasCelulaCultoHtml(culto, item)}</td>
       <td>${acoes}</td>
     </tr>`;
 }
 
+/* cada música vira sua própria linha (input + remover) em vez de um único
+   textarea multi-linha — mais fácil de editar/apagar uma música específica,
+   principalmente no celular */
+function musicasCelulaCultoHtml(culto, item) {
+  const linhas = (item.musicas || [])
+    .map(
+      (m, i) => `
+    <div class="esc-musica-row">
+      <input type="text" value="${escapeHtml(m)}" placeholder="Música" data-action="prog-musica-editar" data-culto="${culto.id}" data-item="${item.id}" data-musica="${i}" />
+      <button data-action="prog-musica-remover" data-culto="${culto.id}" data-item="${item.id}" data-musica="${i}" title="Remover música">×</button>
+    </div>`
+    )
+    .join("");
+  return `<div class="esc-musicas-list">
+    ${linhas}
+    <button class="esc-link esc-musica-add" data-action="prog-musica-add" data-culto="${culto.id}" data-item="${item.id}">+ música</button>
+  </div>`;
+}
+
 function programaTabelaHtml(culto) {
   const itens = culto.programa || [];
-  const linhas = itens.map((item, idx) => programaLinhaHtml(culto, item, idx, itens.length)).join("");
+  const aoVivo = cultoEstaAoVivo(culto);
+  const atualIdx = aoVivo ? indiceItemAtualPrograma(culto) : -1;
+  const linhas = itens
+    .map((item, idx) => {
+      const estadoTemporal = !aoVivo ? null : idx === atualIdx ? "atual" : atualIdx >= 0 && idx < atualIdx ? "passado" : null;
+      return programaLinhaHtml(culto, item, idx, itens.length, estadoTemporal);
+    })
+    .join("");
   return `
     <div class="esc-programa">
       <table class="esc-prog-tabela">
@@ -874,6 +1153,9 @@ function programaTabelaHtml(culto) {
       <div class="esc-prog-add">
         <button class="esc-link" data-action="prog-add-momento" data-culto="${culto.id}">+ momento</button>
         <button class="esc-link" data-action="prog-add-secao" data-culto="${culto.id}">+ seção</button>
+        <button class="esc-link" data-action="prog-importar-csv" data-culto="${culto.id}">importar CSV</button>
+        <button class="esc-link" data-action="prog-baixar-csv" data-culto="${culto.id}">baixar modelo CSV</button>
+        <button class="esc-link esc-danger" data-action="limpar-programa" data-culto="${culto.id}">limpar programa (voltar ao padrão)</button>
       </div>
     </div>`;
 }
@@ -892,7 +1174,9 @@ function grupoMusicalSelectHtml(culto) {
 }
 
 function cultoCardHtml(culto) {
+  const aoVivo = cultoEstaAoVivo(culto);
   const especialTag = culto.especial ? `<span class="tag">especial</span>` : "";
+  const vivoTag = aoVivo ? `<span class="tag esc-tag-vivo">● ao vivo agora</span>` : "";
   const tema = culto.temaId ? state.temasCulto.find((t) => t.id === culto.temaId) : null;
   const temaTag = tema ? `<span class="tag">${escapeHtml(tema.nome)}</span>` : "";
   const programaAbertoAqui = programaAberto.has(culto.id);
@@ -925,14 +1209,15 @@ function cultoCardHtml(culto) {
       </footer>`;
 
   return `
-    <article class="esc-culto-card" data-culto-id="${culto.id}">
+    <article class="esc-culto-card${aoVivo ? " esc-culto-ao-vivo" : ""}" data-culto-id="${culto.id}">
       <header class="esc-culto-head">
         <div>
           <span class="esc-culto-data">${formatDataLonga(culto.data)} · ${escapeHtml(culto.hora)}</span>
-          <h3>${escapeHtml(culto.nome)} ${especialTag} ${temaTag}</h3>
+          <h3>${escapeHtml(culto.nome)} ${especialTag} ${temaTag} ${vivoTag}</h3>
           ${temaSelectHtml(culto)}
           ${temGrupo ? "" : ministranteSelectHtml(culto)}
           ${grupoMusicalSelectHtml(culto)}
+          ${ensaioSelectHtml(culto)}
         </div>
         <div class="esc-culto-actions">
           ${acoesEscala}
@@ -947,19 +1232,42 @@ function cultoCardHtml(culto) {
     </article>`;
 }
 
+/* ── ensaio (data + hora opcionais, um só por culto) ── */
+function ensaioSelectHtml(culto) {
+  return `<div class="esc-ministra">
+    <span class="esc-ministra-label">Ensaio</span>
+    <input type="date" value="${escapeHtml(culto.ensaioData || "")}" data-action="ensaio-data" data-culto="${culto.id}" />
+    <input type="time" value="${escapeHtml(culto.ensaioHora || "")}" data-action="ensaio-hora" data-culto="${culto.id}" />
+  </div>`;
+}
+
 /* ── render: Escalas · lista e calendário ── */
 function renderListaCultos() {
+  const container = document.getElementById("cultosList");
+  if (!state.membros.length) {
+    container.innerHTML = `<p class="esc-empty">Cadastre a equipe na aba <strong style="color:var(--text)">Equipe</strong> para começar a preencher as vagas (ou carregue dados de exemplo em Configurações).</p>`;
+    return;
+  }
+  // veio de um clique num culto do calendário — mostra só ele, não a lista toda
+  if (cultoFiltroId) {
+    const culto = state.cultos.find((c) => c.id === cultoFiltroId);
+    if (culto) {
+      container.innerHTML = `
+        <div class="esc-filtro-aviso">
+          <button class="esc-link" data-action="limpar-filtro-culto">← ver todos os cultos</button>
+        </div>
+        ${cultoCardHtml(culto)}`;
+      return;
+    }
+    cultoFiltroId = null;
+  }
+
   const mostrarPassados = document.getElementById("chkPassados").checked;
   const hojeISO = todayISO();
   const lista = state.cultos
     .filter((c) => mostrarPassados || c.data >= hojeISO)
     .sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
 
-  const container = document.getElementById("cultosList");
-  if (!state.membros.length) {
-    container.innerHTML = `<p class="esc-empty">Cadastre a equipe na aba <strong style="color:var(--text)">Equipe</strong> para começar a preencher as vagas (ou carregue dados de exemplo em Configurações).</p>`;
-    return;
-  }
   if (!lista.length) {
     container.innerHTML = `<p class="esc-empty">Nenhum culto ${mostrarPassados ? "" : "futuro "}encontrado. Confira os tipos de culto em Configurações.</p>`;
     return;
@@ -1026,6 +1334,14 @@ function setViewMode(modo) {
 
 function renderEscalas() {
   ensureUpcomingCultos();
+  // primeira vez que um culto entra na janela "ao vivo": abre o programa
+  // sozinho (se a pessoa fechar depois, não força de novo)
+  state.cultos.forEach((c) => {
+    if (cultoEstaAoVivo(c) && !programaAutoAberto.has(c.id)) {
+      programaAberto.add(c.id);
+      programaAutoAberto.add(c.id);
+    }
+  });
   renderListaCultos();
   if (viewMode === "calendario") renderCalendario();
 }
@@ -1104,9 +1420,6 @@ function renderConfig() {
     </div>`
     )
     .join("");
-  renderGruposMusicais();
-  renderTemasCulto();
-  renderModelosPrograma();
 }
 
 function renderGruposMusicais() {
@@ -1163,9 +1476,25 @@ function modeloLinhaHtml(modelo, item, idx, total) {
       <td><input type="text" class="esc-prog-hora" value="${escapeHtml(item.hora || "")}" placeholder="hh:mm" data-action="modelo-item-hora" data-modelo="${modelo.id}" data-item="${item.id}" /></td>
       <td><input type="text" value="${escapeHtml(item.nome || "")}" placeholder="Momento" data-action="modelo-item-nome" data-modelo="${modelo.id}" data-item="${item.id}" /></td>
       <td><input type="text" value="${escapeHtml(item.responsavel || "")}" placeholder="Responsável" data-action="modelo-item-responsavel" data-modelo="${modelo.id}" data-item="${item.id}" /></td>
-      <td><textarea rows="1" placeholder="Uma música por linha" data-action="modelo-item-musicas" data-modelo="${modelo.id}" data-item="${item.id}">${escapeHtml((item.musicas || []).join("\n"))}</textarea></td>
+      <td>${musicasCelulaModeloHtml(modelo, item)}</td>
       <td>${acoes}</td>
     </tr>`;
+}
+
+function musicasCelulaModeloHtml(modelo, item) {
+  const linhas = (item.musicas || [])
+    .map(
+      (m, i) => `
+    <div class="esc-musica-row">
+      <input type="text" value="${escapeHtml(m)}" placeholder="Música" data-action="modelo-musica-editar" data-modelo="${modelo.id}" data-item="${item.id}" data-musica="${i}" />
+      <button data-action="modelo-musica-remover" data-modelo="${modelo.id}" data-item="${item.id}" data-musica="${i}" title="Remover música">×</button>
+    </div>`
+    )
+    .join("");
+  return `<div class="esc-musicas-list">
+    ${linhas}
+    <button class="esc-link esc-musica-add" data-action="modelo-musica-add" data-modelo="${modelo.id}" data-item="${item.id}">+ música</button>
+  </div>`;
 }
 
 function modeloTabelaHtml(modelo) {
@@ -1180,6 +1509,8 @@ function modeloTabelaHtml(modelo) {
       <div class="esc-prog-add">
         <button class="esc-link" data-action="modelo-add-momento" data-modelo="${modelo.id}">+ momento</button>
         <button class="esc-link" data-action="modelo-add-secao" data-modelo="${modelo.id}">+ seção</button>
+        <button class="esc-link" data-action="modelo-importar-csv" data-modelo="${modelo.id}">importar CSV</button>
+        <button class="esc-link" data-action="modelo-baixar-csv" data-modelo="${modelo.id}">baixar modelo CSV</button>
       </div>
     </div>`;
 }
@@ -1215,12 +1546,56 @@ function atualizarOpcoesModeloEspecial() {
   if (Array.from(sel.options).some((o) => o.value === atual)) sel.value = atual;
 }
 
+/* ── preservar foco/cursor através de um render() ──
+   render() reconstrói innerHTML inteiro; se alguém está digitando quando um
+   render acontece (ex: uma atualização chegando de outro dispositivo pelo
+   Firestore), o campo é recriado do zero e o foco/teclado (no celular) cai.
+   Identifica o campo focado pelos data-attributes (estáveis entre renders)
+   e restaura foco + posição do cursor depois de recriar o HTML. */
+function capturarFoco() {
+  const el = document.activeElement;
+  if (!el || !el.dataset || !["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return null;
+  const chave = ["action", "culto", "modelo", "item", "slot", "id", "musica"]
+    .filter((k) => el.dataset[k] !== undefined)
+    .map((k) => `[data-${k}="${CSS.escape(el.dataset[k])}"]`)
+    .join("");
+  if (!chave) return null;
+  return {
+    seletor: el.tagName.toLowerCase() + chave,
+    selStart: typeof el.selectionStart === "number" ? el.selectionStart : null,
+    selEnd: typeof el.selectionEnd === "number" ? el.selectionEnd : null,
+  };
+}
+function restaurarFoco(info) {
+  if (!info) return;
+  let el;
+  try {
+    el = document.querySelector(info.seletor);
+  } catch (e) {
+    return;
+  }
+  if (!el) return;
+  el.focus();
+  if (info.selStart !== null && typeof el.setSelectionRange === "function") {
+    try {
+      el.setSelectionRange(info.selStart, info.selEnd);
+    } catch (e) {
+      /* alguns tipos de input (ex: date) não suportam seleção de texto */
+    }
+  }
+}
+
 /* ── despacho geral de render ── */
 function render() {
+  const foco = capturarFoco();
   atualizarOpcoesModeloEspecial();
   if (activeTab === "escalas") renderEscalas();
   else if (activeTab === "equipe") renderEquipe();
+  else if (activeTab === "modelos") renderModelosPrograma();
+  else if (activeTab === "temas") renderTemasCulto();
+  else if (activeTab === "grupos") renderGruposMusicais();
   else renderConfig();
+  restaurarFoco(foco);
 }
 
 /* ── abas ── */
@@ -1234,7 +1609,10 @@ document.getElementById("tabsNav").addEventListener("click", (e) => {
 });
 
 /* ── eventos: Escalas · toggle lista/calendário + navegação de mês ── */
-document.getElementById("btnVerLista").addEventListener("click", () => setViewMode("lista"));
+document.getElementById("btnVerLista").addEventListener("click", () => {
+  cultoFiltroId = null;
+  setViewMode("lista");
+});
 document.getElementById("btnVerCalendario").addEventListener("click", () => setViewMode("calendario"));
 document.getElementById("calMesAnterior").addEventListener("click", () => {
   inicializarCalMes();
@@ -1255,16 +1633,10 @@ document.getElementById("calendarioGrid").addEventListener("click", (e) => {
   if (cultoAlvo && cultoAlvo.data < todayISO()) {
     document.getElementById("chkPassados").checked = true;
   }
+  // abre só esse culto, em vez da lista inteira
+  cultoFiltroId = el.dataset.culto;
   setViewMode("lista");
   renderListaCultos();
-  requestAnimationFrame(() => {
-    const cardEl = document.querySelector(`.esc-culto-card[data-culto-id="${el.dataset.culto}"]`);
-    if (cardEl) {
-      cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
-      cardEl.classList.add("esc-culto-destacado");
-      setTimeout(() => cardEl.classList.remove("esc-culto-destacado"), 1600);
-    }
-  });
 });
 
 /* ── eventos: Escalas · cultos e vagas ── */
@@ -1301,6 +1673,12 @@ cultosList.addEventListener("change", (e) => {
     culto.temaId = el.value || null;
     markDirty();
     render();
+  } else if (el.dataset.action === "ensaio-data") {
+    culto.ensaioData = el.value;
+    markDirty();
+  } else if (el.dataset.action === "ensaio-hora") {
+    culto.ensaioHora = el.value;
+    markDirty();
   }
 });
 
@@ -1315,14 +1693,21 @@ cultosList.addEventListener("input", (e) => {
   else if (action === "prog-nome") item.nome = el.value;
   else if (action === "prog-responsavel") item.responsavel = el.value;
   else if (action === "prog-titulo") item.titulo = el.value;
-  else if (action === "prog-musicas") item.musicas = el.value.split("\n").map((s) => s.trim()).filter(Boolean);
-  else return;
+  else if (action === "prog-musica-editar") {
+    if (!Array.isArray(item.musicas)) item.musicas = [];
+    item.musicas[Number(el.dataset.musica)] = el.value;
+  } else return;
   markDirty();
 });
 
 cultosList.addEventListener("click", (e) => {
   const el = e.target.closest("[data-action]");
   if (!el) return;
+  if (el.dataset.action === "limpar-filtro-culto") {
+    cultoFiltroId = null;
+    renderListaCultos();
+    return;
+  }
   const culto = el.dataset.culto ? state.cultos.find((c) => c.id === el.dataset.culto) : null;
   const slot = culto && el.dataset.slot ? culto.slots.find((s) => s.id === el.dataset.slot) : null;
   const action = el.dataset.action;
@@ -1362,6 +1747,24 @@ cultosList.addEventListener("click", (e) => {
     render();
   } else if (action === "status-slot" && culto && slot) {
     slot.status = el.dataset.status;
+    if (slot.membroId) {
+      const membro = state.membros.find((m) => m.id === slot.membroId);
+      if (membro) {
+        if (slot.status === "recusado") {
+          // recusar uma vaga marca a pessoa como indisponível naquela data —
+          // assim o sorteio/sugestão de substituto já não volta a oferecer o
+          // mesmo dia
+          if (!membro.indisponibilidades.includes(culto.data)) {
+            membro.indisponibilidades.push(culto.data);
+            membro.indisponibilidades.sort();
+          }
+        } else {
+          // confirmar/convidar de volta pro mesmo dia contradiz uma recusa
+          // anterior — remove a indisponibilidade que essa recusa tinha criado
+          membro.indisponibilidades = membro.indisponibilidades.filter((d) => d !== culto.data);
+        }
+      }
+    }
     markDirty();
     render();
   } else if (action === "toggle-suggest" && slot) {
@@ -1389,6 +1792,37 @@ cultosList.addEventListener("click", (e) => {
     culto.programa.push({ id: uid(), tipo: "secao", titulo: "Nova seção" });
     markDirty();
     render();
+  } else if (action === "prog-musica-add" && culto && el.dataset.item) {
+    const item = (culto.programa || []).find((i) => i.id === el.dataset.item);
+    if (item) {
+      item.musicas = item.musicas || [];
+      item.musicas.push("");
+      markDirty();
+      render();
+    }
+  } else if (action === "prog-musica-remover" && culto && el.dataset.item) {
+    const item = (culto.programa || []).find((i) => i.id === el.dataset.item);
+    if (item && Array.isArray(item.musicas)) {
+      item.musicas.splice(Number(el.dataset.musica), 1);
+      markDirty();
+      render();
+    }
+  } else if (action === "limpar-programa" && culto) {
+    const modeloId = modeloIdDoCulto(culto);
+    if (!modeloId || !state.modelosPrograma.some((m) => m.id === modeloId)) {
+      alert("Este culto não tem um modelo de programa associado — não há um padrão para restaurar.");
+      return;
+    }
+    if (confirm("Limpar o programa deste culto e voltar ao modelo padrão? Todo o conteúdo atual (horários, responsáveis, músicas) será substituído.")) {
+      culto.programa = defaultPrograma(modeloId);
+      markDirty();
+      render();
+    }
+  } else if (action === "prog-baixar-csv" && culto) {
+    baixarTextoComoArquivo(programaParaCsv(csvModeloParaCulto(culto)), `programa-${culto.data}.csv`, "text/csv");
+  } else if (action === "prog-importar-csv" && culto) {
+    csvImportAlvo = { tipo: "culto", id: culto.id };
+    document.getElementById("csvInput").click();
   } else if (action === "prog-remover" && culto && el.dataset.item) {
     culto.programa = (culto.programa || []).filter((i) => i.id !== el.dataset.item);
     markDirty();
@@ -1431,6 +1865,9 @@ document.getElementById("especialSalvar").addEventListener("click", () => {
     especial: true,
     slots: defaultSlots(),
     programa: defaultPrograma(modelo),
+    modeloProgramaId: modelo || null,
+    ensaioData: "",
+    ensaioHora: "",
     ministranteId: null,
     grupoMusicalId: null,
     temaId: null,
@@ -1719,8 +2156,10 @@ modelosProgramaList.addEventListener("input", (e) => {
   else if (action === "modelo-item-nome") item.nome = el.value;
   else if (action === "modelo-item-responsavel") item.responsavel = el.value;
   else if (action === "modelo-item-titulo") item.titulo = el.value;
-  else if (action === "modelo-item-musicas") item.musicas = el.value.split("\n").map((s) => s.trim()).filter(Boolean);
-  else return;
+  else if (action === "modelo-musica-editar") {
+    if (!Array.isArray(item.musicas)) item.musicas = [];
+    item.musicas[Number(el.dataset.musica)] = el.value;
+  } else return;
   markDirty();
 });
 modelosProgramaList.addEventListener("click", (e) => {
@@ -1737,7 +2176,7 @@ modelosProgramaList.addEventListener("click", (e) => {
         if (t.modeloProgramaId === idModelo) t.modeloProgramaId = null;
       });
       markDirty();
-      renderConfig();
+      renderModelosPrograma();
     }
   } else if (action === "toggle-modelo") {
     if (modelosAbertos.has(idModelo)) modelosAbertos.delete(idModelo);
@@ -1753,6 +2192,30 @@ modelosProgramaList.addEventListener("click", (e) => {
     modelo.itens.push({ id: uid(), tipo: "secao", titulo: "Nova seção" });
     markDirty();
     renderModelosPrograma();
+  } else if (action === "modelo-musica-add" && modelo && el.dataset.item) {
+    const item = (modelo.itens || []).find((i) => i.id === el.dataset.item);
+    if (item) {
+      item.musicas = item.musicas || [];
+      item.musicas.push("");
+      markDirty();
+      renderModelosPrograma();
+    }
+  } else if (action === "modelo-musica-remover" && modelo && el.dataset.item) {
+    const item = (modelo.itens || []).find((i) => i.id === el.dataset.item);
+    if (item && Array.isArray(item.musicas)) {
+      item.musicas.splice(Number(el.dataset.musica), 1);
+      markDirty();
+      renderModelosPrograma();
+    }
+  } else if (action === "modelo-baixar-csv" && modelo) {
+    baixarTextoComoArquivo(
+      programaParaCsv(modelo.itens && modelo.itens.length ? modelo.itens : CSV_EXEMPLO_PADRAO),
+      `modelo-${modelo.nome}.csv`,
+      "text/csv"
+    );
+  } else if (action === "modelo-importar-csv" && modelo) {
+    csvImportAlvo = { tipo: "modelo", id: modelo.id };
+    document.getElementById("csvInput").click();
   } else if (action === "modelo-item-remover" && modelo && el.dataset.item) {
     modelo.itens = (modelo.itens || []).filter((i) => i.id !== el.dataset.item);
     markDirty();
@@ -1771,7 +2234,7 @@ modelosProgramaList.addEventListener("click", (e) => {
 document.getElementById("btnNovoModelo").addEventListener("click", () => {
   state.modelosPrograma.push({ id: uid(), nome: "Novo modelo", itens: [] });
   markDirty();
-  renderConfig();
+  renderModelosPrograma();
 });
 
 /* ── barra superior: persistência ── */
@@ -1798,26 +2261,26 @@ document.getElementById("btnTema").addEventListener("click", () => {
 });
 
 /* ── boot ── */
-// Substitua o seu boot() atual por este:
 function boot() {
   atualizarBotaoTema();
   updateSaveStatus();
   onSnapshot(docRef, (docSnap) => {
-    if (docSnap.exists()) {
-      state = normalizarEstado(docSnap.data());
-    } else {
-      state = novoEstado();
-    }
-    
+    // se ainda há uma escrita local agendada (pessoa digitando), não sobrescreve
+    // por cima dela com o que veio da nuvem — a nossa escrita vai sair em seguida
+    if (firestoreDebounceTimer) return;
+    const bruto = docSnap.exists() ? docSnap.data() : {};
+    // eco da nossa própria escrita (o onSnapshot dispara pra escritas locais
+    // também) — o estado já está refletido aqui, não precisa reprocessar
+    if (typeof bruto._seq === "number" && bruto._seq === ultimoSeqEnviado) return;
+    state = normalizarEstado(bruto);
     dirty = false;
     ensureUpcomingCultos();
     render();
   }, (error) => {
     console.error("Erro ao escutar o banco:", error);
-    state = loadLocal(); 
+    state = loadLocal();
     render();
   });
 }
 
-boot();
 boot();

@@ -114,6 +114,7 @@ body {
 .esc-tabs {
   display: flex; gap: 4px; padding: 14px clamp(20px,4vw,48px) 0;
   border-bottom: 1px solid var(--line);
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
 }
 .esc-tab {
   font-family: var(--mono); font-weight: 600; font-size: 0.76rem; letter-spacing: 0.06em;
@@ -121,6 +122,7 @@ body {
   background: transparent; border: none; cursor: pointer;
   padding: 10px 16px; border-bottom: 2px solid transparent;
   transition: color 0.2s, border-color 0.2s;
+  white-space: nowrap; flex-shrink: 0;
 }
 .esc-tab:hover { color: var(--text); }
 .esc-tab.active { color: var(--brand); border-color: var(--brand); }
@@ -215,14 +217,15 @@ textarea { resize: vertical; font-family: var(--sans); }
   display: flex; align-items: center; gap: 10px;
 }
 .esc-culto-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.esc-culto-destacado { box-shadow: 0 0 0 2px var(--brand); }
+
+.esc-filtro-aviso { margin-bottom: 16px; }
 
 .esc-ministra { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .esc-ministra-label {
   font-family: var(--mono); font-weight: 600; font-size: 0.66rem; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--muted);
 }
-.esc-ministra select { font-size: 0.78rem; padding: 5px 10px; }
+.esc-ministra select, .esc-ministra input[type="date"], .esc-ministra input[type="time"] { font-size: 0.78rem; padding: 5px 10px; }
 .esc-ministra-vazio { color: var(--muted); font-size: 0.78rem; font-style: italic; }
 
 .esc-grupo-aviso {
@@ -256,6 +259,16 @@ textarea { resize: vertical; font-family: var(--sans); }
   font-family: var(--mono); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--brand); background: transparent; border: none; width: 100%;
 }
+.esc-musicas-list { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+.esc-musica-row { display: flex; align-items: center; gap: 4px; }
+.esc-musica-row input[type="text"] { flex: 1; }
+.esc-musica-row button {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 0.9rem; line-height: 1; padding: 2px 4px; flex-shrink: 0;
+}
+.esc-musica-row button:hover { color: var(--red); }
+.esc-musica-add { align-self: flex-start; }
+
 .esc-prog-linha-acoes { white-space: nowrap; }
 .esc-prog-linha-acoes button {
   background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.75rem; padding: 2px 4px;
@@ -263,7 +276,17 @@ textarea { resize: vertical; font-family: var(--sans); }
 .esc-prog-linha-acoes button:hover:not(:disabled) { color: var(--brand); }
 .esc-prog-linha-acoes button:disabled { opacity: 0.25; cursor: not-allowed; }
 .esc-prog-vazio { color: var(--muted); font-style: italic; padding: 10px !important; }
-.esc-prog-add { display: flex; gap: 16px; margin-top: 10px; }
+.esc-prog-add { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+
+/* ─── AO VIVO ─────────────────────────────────────────── */
+.esc-tag-vivo {
+  color: var(--red); border-color: rgba(var(--red-rgb), 0.5);
+  animation: escPulsoVivo 2s ease-in-out infinite;
+}
+@keyframes escPulsoVivo { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+.esc-culto-card.esc-culto-ao-vivo { border-color: rgba(var(--red-rgb), 0.6); box-shadow: 0 0 0 1px rgba(var(--red-rgb), 0.3); }
+.esc-prog-tabela tr.esc-prog-atual td { background: rgba(var(--brand-rgb), 0.14); box-shadow: inset 3px 0 0 var(--brand); }
+.esc-prog-tabela tr.esc-prog-passado td { opacity: 0.5; }
 
 /* ─── CALENDÁRIO ──────────────────────────────────────── */
 .esc-view-toggle { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
