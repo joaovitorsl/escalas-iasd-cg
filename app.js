@@ -99,12 +99,18 @@ const PROGRAMA_LEGADO = {
 // Keep the legacy seed only to recognize untouched example songs in saved templates.
 // Empty strings preserve one editable field per song, including three-song moments.
 const PROGRAMA_PADRAO = Object.fromEntries(Object.entries(PROGRAMA_LEGADO).map(([id, itens]) => [
-  id, itens.map(item => item.secao ? { ...item } : { ...item, musicas: item.musicas.map(() => "") })
+  id, itens.map(item => item.secao ? { ...item } : { ...item, responsavel: "", musicas: item.musicas.map(() => "") })
 ]));
 function musicasDoModelo(m, item) {
   const musicas = Array.isArray(item.musicas) ? item.musicas : [];
   const exemplo = (PROGRAMA_LEGADO[m.id] || []).find(ref => !ref.secao && ref.nome === item.nome && ref.hora === item.hora && JSON.stringify(ref.musicas) === JSON.stringify(musicas));
   return exemplo ? musicas.map(() => "") : [...musicas];
+}
+
+function responsavelDoModelo(m, item) {
+  const responsavel = item.responsavel || "";
+  const exemplo = (PROGRAMA_LEGADO[m.id] || []).some(ref => !ref.secao && ref.nome === item.nome && ref.hora === item.hora && ref.responsavel === responsavel);
+  return exemplo ? "" : responsavel;
 }
 
 const NOMES_MODELO_PADRAO = {
@@ -291,7 +297,7 @@ function normalizarModeloPrograma(m) {
                 tipo: "momento",
                 hora: item.hora || "",
                 nome: item.nome || "",
-                responsavel: item.responsavel || "",
+                responsavel: responsavelDoModelo(m, item),
                 musicas: musicasDoModelo(m, item),
               }
         )
