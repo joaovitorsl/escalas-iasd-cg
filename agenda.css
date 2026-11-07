@@ -359,3 +359,41 @@ input[type="checkbox"] { min-height: 18px; width: 18px; height: 18px; flex: 0 0 
   #pessoaForm .esc-form-row > .esc-check input[type="checkbox"] { appearance: auto; }
   #pessoaForm .esc-form-row > .esc-check input[type="checkbox"]::before { display: none; }
 }
+
+/* Worship editor uses the same field rhythm and separate cards as the reading view. */
+.detail-content .esc-culto-head { display: block; padding: 0; background: transparent; }
+.worship-editor-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; padding: 22px; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 12px; }
+.detail-content .worship-editor-fields .esc-ministra { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin: 0; min-width: 0; }
+.detail-content .esc-ministra-label { text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 13px; }
+.detail-content .esc-ministra select,.detail-content .esc-ministra input { width: 100%; min-width: 0; min-height: 46px; padding: 10px 12px; font-size: 14px; background: var(--bg); border-radius: 8px; }
+.detail-content .esc-ministra-vazio { font-style: normal; font-size: 13px; padding: 12px; min-height: 46px; border: 1px dashed var(--line); border-radius: 8px; }
+.detail-content .worship-editor-fields .rehearsal-fields { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); align-content: start; }
+.rehearsal-fields > span { grid-column: 1/-1; }
+.detail-content .esc-culto-actions { margin: 18px 0 28px; gap: 10px; }
+.detail-content .esc-culto-actions [data-action="autofill"] { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
+.detail-content .remove-service { margin-left: auto; padding: 8px; font-size: 12px; }
+.editor-team-heading { margin-bottom: 16px; }
+.editor-team-heading h3 { font: 700 18px var(--serif); letter-spacing: -.4px; }
+.editor-team-heading p { margin-top: 5px; color: var(--muted); font-size: 13px; }
+.detail-content .esc-slots-grid { grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); gap: 14px; background: transparent; }
+.detail-content .esc-slot { min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-soft); padding: 20px; gap: 14px; }
+.detail-content .esc-slot-confirmado { border-color: var(--brand); }
+.detail-content .esc-slot-recusado { border-color: var(--red); }
+.detail-content .esc-slot-label { text-transform: none; letter-spacing: 0; font: 600 14px var(--sans); color: var(--text); padding-right: 30px; min-height: 24px; display: flex; align-items: center; }
+.detail-content .esc-slot select { background: var(--bg); font-size: 14px; padding: 11px 12px; min-height: 46px; }
+.detail-content .esc-slot-remove { width: 36px; height: 36px; min-height: 36px; top: 12px; right: 12px; font-size: 20px; border-radius: 8px; }
+.detail-content .esc-slot-remove:hover { background: rgba(var(--red-rgb),.1); }
+.slot-empty-hint { font-size: 12px; line-height: 1.6; color: var(--muted); }
+.detail-content .esc-slot-status { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; padding: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+.detail-content .esc-status-btn { min-width: 0; min-height: 44px; padding: 6px 4px; font-size: 11px; text-transform: none; letter-spacing: 0; border: 0; border-radius: 6px; }
+.detail-content .esc-culto-foot { padding: 20px 0 0; margin-top: 22px; gap: 12px; }
+.detail-content .esc-add-select { font-size: 13px; padding: 10px 12px; background: var(--bg-soft); }
+.detail-content .esc-culto-resumo { font-size: 12px; line-height: 1.6; }
+@media (max-width: 760px) {
+  .worship-editor-fields { grid-template-columns: 1fr; padding: 16px; gap: 18px; }
+  .detail-content .esc-ministra select,.detail-content .esc-ministra input,.detail-content .esc-slot select { font-size: 16px; }
+  .detail-content .esc-culto-actions .btn-outline.esc-btn-sm { flex: 1 1 120px; }
+  .detail-content .remove-service { margin-left: 0; }
+  .detail-content .esc-culto-foot { align-items: stretch; }
+  .detail-content .esc-culto-resumo { width: 100%; }
+}

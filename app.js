@@ -1000,7 +1000,7 @@ function slotHtml(culto, slot) {
   const botoesStatus = ["convidado", "confirmado", "recusado"]
     .map(
       (st) =>
-        `<button class="esc-status-btn ${slot.status === st ? "active" : ""}" data-action="status-slot" data-culto="${culto.id}" data-slot="${slot.id}" data-status="${st}" ${!slot.membroId ? "disabled" : ""}>${STATUS_LABEL[st]}</button>`
+        `<button class="esc-status-btn ${slot.status === st ? "active" : ""}" data-action="status-slot" data-culto="${culto.id}" data-slot="${slot.id}" data-status="${st}" aria-pressed="${slot.status === st}" ${!slot.membroId ? "disabled" : ""}>${STATUS_LABEL[st]}</button>`
     )
     .join("");
 
@@ -1015,7 +1015,7 @@ function slotHtml(culto, slot) {
       <button class="esc-slot-remove" data-action="remove-slot" data-culto="${culto.id}" data-slot="${slot.id}" title="Remover vaga">×</button>
       <div class="esc-slot-label">${escapeHtml(label)}</div>
       <select aria-label="Pessoa para ${escapeHtml(label)}" data-action="assign-slot" data-culto="${culto.id}" data-slot="${slot.id}">${options}</select>
-      <div class="esc-slot-status">${botoesStatus}</div>
+      ${slot.membroId ? `<div class="esc-slot-status" role="group" aria-label="Confirmação de ${escapeHtml(label)}">${botoesStatus}</div>` : '<p class="slot-empty-hint">Escolha uma pessoa para confirmar a participação.</p>'}
       ${suggestBtn}
       ${suggestBlock}
     </div>`;
@@ -1043,7 +1043,7 @@ function temaSelectHtml(culto) {
     .join("");
   return `<div class="esc-ministra">
     <span class="esc-ministra-label">Tema do culto</span>
-    <select data-action="set-tema" data-culto="${culto.id}">
+    <select aria-label="Tema do culto" data-action="set-tema" data-culto="${culto.id}">
       <option value="">— sem tema —</option>
       ${opcoes}
     </select>
@@ -1063,7 +1063,7 @@ function ministranteSelectHtml(culto) {
     .join("");
   return `<div class="esc-ministra">
     <span class="esc-ministra-label">Quem conduz o louvor</span>
-    <select data-action="set-ministrante" data-culto="${culto.id}">
+    <select aria-label="Quem conduz o louvor" data-action="set-ministrante" data-culto="${culto.id}">
       <option value="">— a definir —</option>
       ${opcoes}
     </select>
@@ -1190,8 +1190,8 @@ function grupoMusicalSelectHtml(culto) {
     .join("");
   return `<div class="esc-ministra">
     <span class="esc-ministra-label">Grupo musical</span>
-    <select data-action="set-grupo-musical" data-culto="${culto.id}">
-      <option value="">— time regular (escalar individualmente) —</option>
+    <select aria-label="Grupo musical" data-action="set-grupo-musical" data-culto="${culto.id}">
+      <option value="">Equipe da igreja</option>
       ${opcoes}
     </select>
   </div>`;
@@ -1213,8 +1213,8 @@ function cultoEditorHtml(culto) {
        <button class="btn-outline esc-btn-sm" data-action="limpar-escala" data-culto="${culto.id}">Limpar escala</button>`;
 
   const corpoEscala = temGrupo
-    ? `<div class="esc-grupo-aviso">Este culto é conduzido por <strong>${escapeHtml(grupo ? grupo.nome : "um grupo removido")}</strong> — sem escala individual de instrumentos/vozes. Escolha "time regular" acima pra voltar a escalar pessoa por pessoa.</div>`
-    : `<div class="esc-slots-grid">
+    ? `<div class="esc-grupo-aviso">Este culto é conduzido por <strong>${escapeHtml(grupo ? grupo.nome : "um grupo removido")}</strong> — sem escala individual de instrumentos/vozes. Escolha "Equipe da igreja" acima pra voltar a escalar pessoa por pessoa.</div>`
+    : `<div class="editor-team-heading"><h3>Equipe de louvor</h3><p>Escolha quem participa em cada função.</p></div><div class="esc-slots-grid">
         ${culto.slots.map((slot) => slotHtml(culto, slot)).join("")}
       </div>
       <footer class="esc-culto-foot">
@@ -1234,7 +1234,7 @@ function cultoEditorHtml(culto) {
   return `
     <article class="esc-culto-card${aoVivo ? " esc-culto-ao-vivo" : ""}" data-culto-id="${culto.id}">
       <header class="esc-culto-head">
-        <div>
+        <div class="worship-editor-fields">
           <span class="esc-culto-data">${formatDataLonga(culto.data)} · ${escapeHtml(culto.hora)}</span>
           <h3>${escapeHtml(culto.nome)} ${especialTag} ${temaTag} ${vivoTag}</h3>
           ${temaSelectHtml(culto)}
@@ -1244,7 +1244,7 @@ function cultoEditorHtml(culto) {
         </div>
         <div class="esc-culto-actions">
           ${acoesEscala}
-          <button class="esc-icon-btn" data-action="delete-culto" data-culto="${culto.id}" title="Remover culto da agenda">×</button>
+          <button class="esc-link esc-danger remove-service" data-action="delete-culto" data-culto="${culto.id}" title="Remover culto da agenda">Remover culto</button>
         </div>
       </header>
       ${corpoEscala}
@@ -1254,10 +1254,10 @@ function cultoEditorHtml(culto) {
 
 /* ── ensaio (data + hora opcionais, um só por culto) ── */
 function ensaioSelectHtml(culto) {
-  return `<div class="esc-ministra">
+  return `<div class="esc-ministra rehearsal-fields">
     <span class="esc-ministra-label">Ensaio</span>
-    <input type="date" value="${escapeHtml(culto.ensaioData || "")}" data-action="ensaio-data" data-culto="${culto.id}" />
-    <input type="time" value="${escapeHtml(culto.ensaioHora || "")}" data-action="ensaio-hora" data-culto="${culto.id}" />
+    <input aria-label="Data do ensaio" type="date" value="${escapeHtml(culto.ensaioData || "")}" data-action="ensaio-data" data-culto="${culto.id}" />
+    <input aria-label="Horário do ensaio" type="time" value="${escapeHtml(culto.ensaioHora || "")}" data-action="ensaio-hora" data-culto="${culto.id}" />
   </div>`;
 }
 
