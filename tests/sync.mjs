@@ -15,7 +15,7 @@ await page.route('**/*',async route=>{
  const url=new URL(route.request().url());
  if(url.hostname==='preview.test') {
    const file=url.pathname==='/'?'index.html':url.pathname.slice(1);
-   if(!['index.html','app.js','style.css','agenda.css'].includes(file)) return route.fulfill({status:404,body:''});
+   if(!['index.html','app.js','ui/agenda.js','style.css','agenda.css'].includes(file)) return route.fulfill({status:404,body:''});
    return route.fulfill({contentType:file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html',body:await readFile(`${root}/${file}`,'utf8')});
  }
  if(url.pathname.endsWith('firebase-app.js')) return route.fulfill({contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:'export const initializeApp = () => ({});'});

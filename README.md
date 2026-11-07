@@ -40,3 +40,9 @@ Caso Playwright não esteja na resolução padrão do Node, informe `PLAYWRIGHT_
 Os testes usam pessoas fictícias. O teste de sincronização intercepta todos os pedidos e substitui o Firebase por um módulo simulado: não acessa o banco da igreja. As capturas vão para uma pasta temporária indicada ao terminar.
 
 Cobertura: consulta sem cadastro de equipe, estados das vagas, eventos no mesmo dia, edição, persistência, filtros, calendário, criação de culto, celular, impressão, inicialização hospedada e resultado de sincronização.
+
+### Interface
+
+A navegação fica na lateral no desktop e na parte inferior no celular. A agenda destaca o próximo culto com equipe, programa e ensaio, e agrupa os demais por mês. O visual usa uma paleta verde com temas claro e escuro.
+
+`ui/agenda.js` contém os componentes de apresentação e ícones; `agenda.css` define a navegação, agenda, consulta e adaptação móvel. `style.css` mantém os tokens compartilhados e os componentes dos editores. As regras de escala e a persistência continuam em `app.js`, sem etapa de build.

@@ -1,3 +1,4 @@
+import { icon, renderServiceCard } from "./ui/agenda.js";
 // Local previews never connect to the church's shared database.
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 let setDoc, onSnapshot, docRef;
@@ -1260,24 +1261,7 @@ function statusLouvor(culto) {
 }
 
 function cultoResumoHtml(culto, primeiro) {
-  const status = statusLouvor(culto);
-  const data = parseISO(culto.data);
-  const mes = data.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
-  const lider = state.membros.find(m => m.id === culto.ministranteId);
-  const grupo = state.gruposMusicais.find(g => g.id === culto.grupoMusicalId);
-  const tema = state.temasCulto.find(t => t.id === culto.temaId);
-  return `<article class="agenda-card ${primeiro ? "agenda-card-next" : ""}">
-    <div class="agenda-date"><span>${mes}</span><strong>${data.getDate()}</strong><span>${data.getFullYear()}</span></div>
-    <div class="agenda-card-content">
-      ${primeiro ? '<span class="eyebrow">Próximo na agenda</span>' : ''}
-      <p class="agenda-when">${DIAS_SEMANA[data.getDay()]} · ${escapeHtml(culto.hora || "Horário a definir")}</p>
-      <h3>${escapeHtml(culto.nome)}</h3>
-      ${tema ? `<p>${escapeHtml(tema.nome)}</p>` : ""}
-      <p class="agenda-leader">${grupo ? escapeHtml(grupo.nome) : lider ? `Louvor com ${escapeHtml(lider.nome)}` : "Responsável pelo louvor a definir"}</p>
-      <span class="service-status ${status.classe}">${status.texto}</span>
-    </div>
-    <button class="${primeiro ? 'btn-fill' : 'btn-outline'}" data-action="abrir-culto" data-culto="${culto.id}">Ver culto <span aria-hidden="true">→</span></button>
-  </article>`;
+  return renderServiceCard(culto, primeiro, { state, status: statusLouvor(culto), escapeHtml, parseISO, dias: DIAS_SEMANA });
 }
 
 function programaLeituraHtml(culto) {
@@ -1342,7 +1326,7 @@ function renderListaCultos() {
     (!busca || [c.nome, c.data, formatDataLonga(c.data), state.temasCulto.find(t => t.id === c.temaId)?.nome, c.organizacao?.ministerio].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(busca)))
     .sort((a,b) => (a.data + a.hora).localeCompare(b.data + b.hora));
   const proximo = state.cultos.filter(c => c.data >= todayISO()).sort((a,b) => (a.data + a.hora).localeCompare(b.data + b.hora))[0];
-  container.innerHTML = lista.length ? lista.map(c => cultoResumoHtml(c, c.id === proximo?.id)).join('') : '<div class="detail-empty"><h3>Nenhum culto encontrado</h3><p>Tente outro dia ou outra busca. Você também pode adicionar um culto.</p></div>';
+  container.innerHTML = lista.length ? lista.map((c, i) => { const month = c.data.slice(0, 7); const heading = i === 0 || lista[i - 1].data.slice(0, 7) !== month; return `${heading ? `<h3 class="agenda-month">${parseISO(c.data).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h3>` : ''}${cultoResumoHtml(c, c.id === proximo?.id)}`; }).join('') : '<div class="detail-empty"><h3>Nenhum culto encontrado</h3><p>Tente outro dia ou outra busca. Você também pode adicionar um culto.</p></div>';
   document.getElementById("agendaCount").textContent = `${lista.length} ${lista.length === 1 ? 'culto' : 'cultos'}`;
 }
 
@@ -1675,7 +1659,9 @@ document.getElementById("tabsNav").addEventListener("click", (e) => {
   const btn = e.target.closest(".esc-tab");
   if (!btn) return;
   activeTab = btn.dataset.tab;
-  document.querySelector(".organize-menu").open = false;
+  document.querySelector(".organize-menu").classList.toggle("has-active", !["escalas", "equipe"].includes(activeTab));
+  if (window.matchMedia("(max-width: 760px)").matches) document.querySelector(".organize-menu").open = false;
+  document.getElementById("workspaceTitle").textContent = btn.textContent.trim();
   document.querySelectorAll(".esc-tab").forEach((b) => b.classList.toggle("active", b === btn));
   document.querySelectorAll(".esc-panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + activeTab));
   render();
@@ -2365,7 +2351,7 @@ function temaAtual() {
   return document.documentElement.getAttribute("data-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 }
 function atualizarBotaoTema() {
-  document.getElementById("btnTema").textContent = temaAtual() === "dark" ? "☀️" : "🌙";
+  document.getElementById("btnTema").innerHTML = icon(temaAtual() === "dark" ? "sun" : "moon");
 }
 document.getElementById("btnTema").addEventListener("click", () => {
   const novoTema = temaAtual() === "dark" ? "light" : "dark";
@@ -2376,6 +2362,11 @@ document.getElementById("btnTema").addEventListener("click", () => {
 
 /* ── boot ── */
 function boot() {
+  document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
+  document.getElementById('agendaToday').textContent = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+  const mobileNav = window.matchMedia('(max-width: 760px)');
+  document.querySelector('.organize-menu').open = !mobileNav.matches;
+  mobileNav.addEventListener('change', e => { document.querySelector('.organize-menu').open = !e.matches; });
   atualizarBotaoTema();
   updateSaveStatus();
   if (LOCAL_PREVIEW) {

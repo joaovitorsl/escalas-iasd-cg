@@ -1,55 +1,116 @@
-/* Agenda and service reading view. Existing editing tools keep their layout. */
-body { background: var(--bg-soft); font-size: 16px; line-height: 1.55; }
-button, input, select, textarea { font: inherit; }
-button, summary { touch-action: manipulation; }
-button, input, select, summary { min-height: 44px; }
-button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
-.esc-top { background: var(--bg); padding: 22px max(24px, calc((100% - 1080px) / 2)); }
-.esc-brand { display: block; }
-.esc-brand strong { font-family: var(--sans); font-size: 1.3rem; letter-spacing: -.05em; }
-.brand-dot { color: var(--brand); margin: 0 5px; }
-.esc-brand > .tag { border: 0; padding: 0; text-transform: none; letter-spacing: 0; font-size: .75rem; }
-.esc-status { font-size: .8rem; max-width: 270px; }
-.esc-tabs { overflow: visible; background: var(--bg); padding: 0 max(24px, calc((100% - 1080px) / 2)); gap: 24px; }
-.esc-tab { text-transform: none; letter-spacing: 0; font-size: .95rem; padding: 16px 0; }
-.esc-main { max-width: 1128px; padding: 42px 24px 80px; }
-.organize-menu { position: relative; margin-left: auto; }
-.organize-menu summary { padding: 16px 8px; color: var(--muted); cursor: pointer; }
-.organize-menu > div { position: absolute; right: 0; top: 100%; z-index: 10; min-width: 240px; display: grid; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 8px 20px; box-shadow: 0 12px 30px #00000012; }
-.organize-menu .esc-tab { text-align: left; padding: 12px 0; }
-.agenda-intro { margin-bottom: 44px; }
-.eyebrow { display: block; font-size: .8rem; color: var(--muted); font-weight: 600; letter-spacing: .025em; }
-.agenda-intro > .eyebrow { color: var(--brand); margin-bottom: 14px; }
-.agenda-intro h1 { font-size: clamp(2.1rem, 4vw, 3.25rem); line-height: 1.13; letter-spacing: -.055em; font-weight: 600; margin-bottom: 18px; }
-.agenda-intro p { color: var(--muted); line-height: 1.75; }
-.section-label { font-size: 1.15rem; text-transform: none; letter-spacing: -.025em; color: var(--text); }
-#agendaCount { margin-left: 12px; font-size: .8rem; font-weight: 400; color: var(--muted); }
-.btn-fill, .btn-outline, .esc-btn-sm { font-size: .875rem; text-transform: none; letter-spacing: 0; padding: 10px 18px; border-radius: 10px; min-height: 44px; }
-.esc-link, .esc-check, .esc-view-btn { font-size: .875rem; letter-spacing: 0; text-transform: none; }
-.esc-icon-btn { width: 44px; height: 44px; }
-.agenda-filter-panel { margin-bottom: 20px; }
-.agenda-filter-panel > summary { cursor: pointer; color: var(--muted); font-size: .9rem; padding: 10px 0; }
-.agenda-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; padding: 12px 0; }
-.agenda-filters .esc-check { display: flex; min-height: 44px; }
-.agenda-filters .esc-check input { width: 18px; min-height: 18px; }
-.agenda-filters label { display: grid; gap: 6px; font-size: .8rem; color: var(--muted); }
+/* Application shell and agenda. Shared editor primitives live in style.css. */
+body { background: var(--bg-soft); font-size: 15px; line-height: 1.5; }
+button,input,select,textarea { font: inherit; }
+button,summary { touch-action: manipulation; }
+button,input,select,summary { min-height: 44px; }
+button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.ui-icon { flex-shrink: 0; vertical-align: middle; }
+.app-sidebar { position: fixed; inset: 0 auto 0 0; width: 238px; background: #203a2f; color: #e9efdf; display: flex; flex-direction: column; z-index: 30; padding: 38px 20px 24px; }
+.app-brand { display: flex; align-items: center; gap: 12px; padding: 0 12px 48px; }
+.app-brand strong { font: 800 30px/1.2 var(--serif); letter-spacing: -1.5px; }
+.app-brand strong > span { color: #cce8a8; }
+.app-brand small { display: block; font-size: 10px; letter-spacing: 1.7px; margin-top: 7px; color: #acbfb0; }
+.brand-symbol { background: #cce8a8; color: #203a2f; width: 42px; height: 44px; border-radius: 15px 15px 15px 4px; font: 800 40px/36px var(--serif); text-align: center; position: relative; }
+.brand-symbol > span { font-size: 23px; position: absolute; right: 4px; bottom: -4px; }
+.esc-tabs { display: flex; flex-direction: column; padding: 0; gap: 8px; background: none; border: 0; overflow: visible; }
+.nav-caption { color: #9aafa0; font-size: 11px; font-weight: 600; letter-spacing: 1.3px; padding: 0 14px 10px; }
+.esc-tab { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px; border: 0; border-radius: 9px; font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: 0; text-align: left; color: #bfd0c2; white-space: normal; }
+.esc-tab:hover { background: #2b4639; color: #fff; }
+.esc-tab.active { color: #e2f2c6; background: #35513e; }
+.organize-menu { border-top: 1px solid #3a5042; margin-top: 20px; padding-top: 18px; }
+.organize-menu summary { list-style: none; display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 12px 14px; color: #a8bdad; font-size: 13px; }
+.organize-menu summary::-webkit-details-marker { display: none; }
+.menu-chevron { margin-left: auto; }
+.organize-menu > div { display: grid; gap: 4px; }
+.organize-menu .esc-tab { font-size: 12px; }
+.sidebar-church { margin-top: auto; padding: 24px 8px 0; display: flex; gap: 12px; align-items: center; }
+.church-monogram { width: 34px; height: 34px; border: 1px solid #647c5b; border-radius: 50%; display: grid; place-items: center; color: #d0e1bb; font-size: 12px; }
+.sidebar-church strong { font-size: 13px; font-weight: 500; }
+.sidebar-church small { display: block; color: #a5bba9; font-size: 12px; margin-top: 3px; }
+.esc-top { margin-left: 238px; min-height: 76px; padding: 16px 36px; border-bottom: 1px solid var(--line); background: var(--bg-soft); flex-wrap: nowrap; }
+.workspace-label { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 14px; }
+.workspace-label strong { color: var(--text); font-weight: 500; }
+.workspace-label > span { color: #aeb9ad; }
+.esc-persist { gap: 18px; flex-wrap: nowrap; }
+.esc-status { font-size: 12px; letter-spacing: 0; }
+.esc-icon-btn { width: 40px; height: 40px; border-radius: 50%; display: inline-grid; place-items: center; color: var(--muted); }
+.esc-main { margin: 0 0 0 238px; max-width: none; padding: 38px clamp(24px,4vw,64px) 80px; }
+.esc-panel { max-width: 1120px; margin: 0 auto; }
+.agenda-intro { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px; }
+.eyebrow { display: block; color: var(--muted); font-size: 13px; font-weight: 500; }
+.agenda-intro .eyebrow { text-transform: uppercase; font-size: 11px; letter-spacing: 1.6px; margin-bottom: 11px; }
+.agenda-intro h1 { font: 800 clamp(28px,3vw,39px)/1.3 var(--serif); letter-spacing: -1.7px; }
+.agenda-intro h1 > span { color: #7d9e53; }
+.agenda-intro p { margin-top: 9px; color: var(--muted); font-size: 13px; }
+.intro-symbol { width: 66px; height: 66px; border: 1px solid var(--line); border-radius: 50%; display: grid; place-items: center; transform: rotate(-12deg); color: var(--brand); }
+.intro-symbol svg { width: 28px; height: 28px; }
+.section-label { font: 700 19px/1.3 var(--serif); text-transform: none; letter-spacing: -.6px; color: var(--text); border: 0; padding: 0; margin: 0; }
+#agendaCount { color: var(--muted); font: 400 12px var(--sans); letter-spacing: 0; margin-left: 10px; }
+.esc-panel-head { margin-bottom: 18px; align-items: center; }
+.esc-panel-actions { gap: 12px; }
+.btn-fill,.btn-outline,.esc-btn-sm { display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 8px; padding: 10px 16px; font-size: 12px; text-transform: none; letter-spacing: 0; min-height: 44px; }
+.btn-fill { box-shadow: 0 2px 2px #00000008; }
+.esc-link,.esc-check,.esc-view-btn { text-transform: none; letter-spacing: 0; font-size: 12px; }
+.esc-view-toggle { padding: 3px; background: var(--line); border: 0; border-radius: 8px; }
+.esc-view-btn { border-radius: 6px; min-height: 36px; padding: 7px 12px; }
+.esc-view-btn.active { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px #00000012; }
+.agenda-filter-panel { margin-bottom: 12px; }
+.agenda-filter-panel summary { min-height: 36px; display: inline-flex; align-items: center; cursor: pointer; font-size: 12px; color: var(--muted); gap: 10px; }
+.agenda-filter-panel summary::before { content: '+'; font-size: 18px; }
+.agenda-filter-panel[open] summary::before { content: '−'; }
+.agenda-filters { display: flex; gap: 16px; align-items: end; padding: 12px 0 20px; }
+.agenda-filters label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
 .agenda-filters .search-label { flex: 1; }
-.agenda-filters input, .agenda-filters select, .department-grid input { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; font-size: 1rem; }
-.esc-cultos-list { gap: 14px; }
-.agenda-card { display: flex; align-items: center; gap: 24px; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
-.agenda-card-next { border: 1px solid rgba(var(--brand-rgb), .45); box-shadow: 0 4px 20px rgba(var(--brand-rgb), .05); }
-.agenda-date { width: 72px; flex: 0 0 72px; display: flex; flex-direction: column; align-items: center; border-right: 1px solid var(--line); padding-right: 20px; color: var(--muted); }
-.agenda-date span { font-size: .8rem; }
-.agenda-date span:first-child { text-transform: uppercase; letter-spacing: .08em; }
-.agenda-date strong { font-size: 2rem; line-height: 1.35; font-weight: 500; color: var(--text); }
-.agenda-card-content { flex: 1; min-width: 0; }
-.agenda-card-content > .eyebrow { color: var(--brand); margin-bottom: 6px; }
-.agenda-card h3 { font-size: 1.15rem; font-weight: 600; margin: 2px 0 5px; letter-spacing: -.025em; }
-.agenda-when, .agenda-leader { font-size: .875rem; color: var(--muted); }
-.agenda-leader { margin-bottom: 10px; }
-.service-status { display: inline-block; padding: 4px 9px; border-radius: 6px; font-size: .78rem; background: var(--bg-soft); color: var(--muted); }
-.service-status.pending { background: #fff0d4; color: #76500c; }
-.service-status.confirmed { background: #e6f3eb; color: #246341; }
+.agenda-filters .esc-check { display: flex; align-items: center; min-height: 44px; }
+.agenda-filters .esc-check input { width: 18px; min-height: 18px; }
+.agenda-filters input,.agenda-filters select,.department-grid input { width: 100%; padding: 10px 12px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; }
+.esc-cultos-list { display: flex; flex-direction: column; gap: 10px; }
+.agenda-month { font-size: 13px; text-transform: capitalize; font-weight: 500; color: var(--muted); margin: 16px 0 5px; }
+.agenda-month:first-child { margin-top: 0; }
+.agenda-card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; transition: border-color .15s, box-shadow .15s; }
+.agenda-card:hover { border-color: #9eb5a3; box-shadow: 0 4px 12px #183f2605; }
+.agenda-card-main { display: flex; align-items: center; gap: 22px; }
+.agenda-date { width: 53px; flex: 0 0 53px; display: flex; flex-direction: column; align-items: center; color: var(--muted); line-height: 1.25; padding: 2px 0; }
+.agenda-date span { font-size: 12px; text-transform: uppercase; letter-spacing: .7px; }
+.agenda-date strong { font: 600 30px/1.35 var(--serif); letter-spacing: -1px; color: var(--text); }
+.agenda-card-content { flex: 1; min-width: 0; border-left: 1px solid var(--line); padding-left: 22px; }
+.agenda-when { font-size: 12px; color: var(--muted); }
+.agenda-when span { margin: 0 4px; }
+.agenda-card h3 { font: 700 16px/1.5 var(--serif); letter-spacing: -.5px; margin: 4px 0; }
+.agenda-leader,.agenda-theme { font-size: 13px; color: var(--muted); }
+.agenda-card-action { display: flex; flex-direction: column; align-items: end; gap: 9px; }
+.agenda-card-action button { font-size: 13px; min-height: 38px; padding: 6px 12px; border-color: transparent; color: var(--brand); }
+.agenda-card-action button svg { width: 16px; }
+.service-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.5; border-radius: 5px; padding: 4px 8px; background: var(--bg-soft); color: var(--muted); }
+.service-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.service-status.pending { background: #f6edda; color: #856325; }
+.service-status.confirmed { background: #e7f1e5; color: #387249; }
+.agenda-card-next { background: #264b3b; border-color: #264b3b; color: #f6f8ed; padding: 22px 28px 0; margin-bottom: 12px; overflow: hidden; }
+.agenda-card-next:hover { border-color: #264b3b; }
+.featured-label { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 1.3px; color: #d1e4bd; margin-bottom: 22px; }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: #cce8a8; box-shadow: 0 0 0 4px #cce8a812; }
+.featured-caption { margin-left: auto; color: #b8cdbb; font-size: 12px; letter-spacing: 0; }
+.agenda-card-next .agenda-date { background: #ffffff0b; border-radius: 10px; width: 66px; flex-basis: 66px; padding: 10px 0; }
+.agenda-card-next .agenda-date strong { color: #edf4df; font-size: 34px; }
+.agenda-card-next .agenda-date span,.agenda-card-next .agenda-when,.agenda-card-next .agenda-leader,.agenda-card-next .agenda-theme { color: #c4d5c6; }
+.agenda-card-next .agenda-card-content { border: 0; padding: 0; }
+.agenda-card-next h3 { font-size: 23px; letter-spacing: -.7px; }
+.agenda-card-next .service-status { background: #ffffff0b; color: #eedcb1; }
+.agenda-card-next .service-status.confirmed { color: #cce8a8; }
+.agenda-card-next .btn-fill { background: #cce8a8; color: #203a2f; padding: 10px 17px; min-height: 42px; }
+.featured-preparation { display: grid; grid-template-columns: 1fr 1fr 1fr; margin-top: 25px; border-top: 1px solid #ffffff1c; padding: 19px 0; gap: 12px; }
+.featured-preparation > div { display: flex; align-items: center; gap: 10px; color: #b3c9b6; }
+.featured-preparation svg { width: 17px; }
+.featured-preparation small { display: block; font-size: 9px; letter-spacing: .9px; margin-bottom: 4px; }
+.featured-preparation strong { display: block; font-size: 12px; color: #e0eadb; font-weight: 500; }
+.esc-membro-card,.esc-form-card,.esc-tipo-card,.esc-modelo-card { border-radius: 12px; background: var(--bg); }
+.esc-membro-head h3 { font-family: var(--serif); }
+.esc-help { font-size: 13px; line-height: 1.8; max-width: 780px; }
+.esc-form-row input,.esc-form-row select,.esc-form-card textarea { border-radius: 7px; }
+.esc-calendario { background: var(--bg); padding: 22px; border: 1px solid var(--line); border-radius: 12px; }
+.esc-cal-mes { font: 700 20px var(--serif); text-transform: capitalize; letter-spacing: -.5px; }
+.esc-cal-cell { min-width: 0; }
+.esc-cal-badge { white-space: normal; overflow-wrap: anywhere; min-height: 38px; }
 .detail-back { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 24px; }
 .service-detail { border: 1px solid var(--line); background: var(--bg); border-radius: 18px; overflow: hidden; }
 .service-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 30px; }
@@ -91,39 +152,117 @@ button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-v
 .esc-programa { overflow-x: auto; }
 .print-service { display: none; }
 .esc-form-inline label { display: grid; gap: 6px; font-size: .875rem; }
-@media (max-width: 700px) {
-  .esc-top { padding: 18px 20px; gap: 14px; }
-  .esc-persist { width: 100%; justify-content: space-between; }
-  .esc-status { max-width: none; font-size: .75rem; }
-  .esc-tabs { padding: 0 20px; gap: 20px; }
-  .esc-tab, .organize-menu summary { font-size: .85rem; }
-  .esc-main { padding: 28px 16px 60px; }
-  .agenda-intro { margin-bottom: 30px; }
-  .agenda-intro > .eyebrow { display: none; }
-  .agenda-intro h1 { font-size: 1.75rem; margin-bottom: 0; }
-  .agenda-intro p { display: none; }
-  .desktop-break { display: none; }
-  .agenda-filters { flex-direction: column; gap: 10px; align-items: stretch; }
-  .agenda-card { padding: 20px 16px; gap: 14px; flex-wrap: wrap; }
-  .agenda-date { width: 50px; flex-basis: 50px; padding-right: 12px; }
-  .agenda-card > button { width: 100%; }
-  .agenda-card h3 { font-size: 1rem; }
-  .agenda-leader { font-size: .8rem; }
-  .agenda-card-content { flex-basis: calc(100% - 70px); }
+/* Detail view follows the same quiet, readable hierarchy. */
+.service-heading { padding: 30px; background: var(--bg); }
+.service-heading h2 { font-family: var(--serif); font-weight: 800; }
+.detail-back { margin-bottom: 22px; }
+.detail-back .esc-link { color: var(--muted); }
+.detail-tabs { gap: 30px; }
+.detail-tabs button { font-size: 12px; }
+.team-read li { background: var(--bg-soft); border: 0; border-radius: 9px; }
+.team-read strong { font-size: 14px; margin-top: 4px; }
+.worship-intro { background: var(--bg-soft); border-radius: 10px; padding: 20px; }
+.worship-intro .eyebrow { margin-bottom: 6px; }
+.department-grid > div { border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+.order-section { font: 700 13px var(--serif); padding: 16px; }
+.order-moment h3 { font-size: 14px; }
+.order-time { font-size: 12px; }
+.order-person,.order-song { font-size: 13px; }
+.detail-note { font-size: 13px; }
+@media (min-width: 761px) and (max-width: 1100px) {
+  .app-sidebar { width: 206px; padding-left: 12px; padding-right: 12px; }
+  .esc-top,.esc-main { margin-left: 206px; }
+  .esc-main { padding-left: 28px; padding-right: 28px; }
+  .workspace-label { display: none; }
+  .esc-top { justify-content: flex-end; }
+  .agenda-card-next h3 { font-size: 20px; }
+  .agenda-card { padding-left: 18px; padding-right: 18px; }
+  .agenda-card-main { gap: 14px; }
+  .featured-preparation { gap: 7px; }
+  .featured-preparation svg { display: none; }
+}
+@media (max-width: 760px) {
+  .app-sidebar { position: static; width: 100%; padding: 20px 22px 10px; background: var(--bg-soft); color: var(--text); }
+  .app-brand { padding: 0; gap: 10px; }
+  .app-brand strong { font-size: 27px; }
+  .app-brand small { color: var(--muted); font-size: 9px; letter-spacing: 1.4px; margin-top: 4px; }
+  .brand-symbol { width: 36px; height: 38px; font-size: 35px; border-radius: 12px 12px 12px 3px; }
+  .sidebar-church,.nav-caption { display: none; }
+  .esc-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 4px; padding: 8px 16px max(10px,env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); box-shadow: 0 -4px 20px #203a2f08; }
+  .esc-tabs > .esc-tab,.organize-menu summary { flex-direction: column; gap: 4px; justify-content: center; font-size: 12px; padding: 8px 4px; min-height: 55px; border-radius: 8px; color: var(--muted); }
+  .esc-tabs > .esc-tab.active { color: var(--brand); background: var(--bg-soft); }
+  .organize-menu { border: 0; margin: 0; padding: 0; }
+  .organize-menu summary .menu-chevron { display: none; }
+  .organize-menu[open] summary,.organize-menu.has-active summary { color: var(--brand); background: var(--bg-soft); }
+  .organize-menu > div { position: absolute; bottom: calc(100% + 10px); left: 16px; right: 16px; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 40px #142c3326; }
+  .organize-menu .esc-tab { color: var(--text); font-size: 13px; }
+  .organize-menu .esc-tab.active { background: var(--bg-soft); color: var(--brand); }
+  .esc-top { margin: 0; border: 0; padding: 0 22px; min-height: 28px; }
+  .workspace-label { display: none; }
+  .esc-persist { width: 100%; }
+  .esc-status { font-size: 11px; }
+  #btnTema { position: absolute; top: 23px; right: 20px; border: 1px solid var(--line); }
+  .esc-main { margin: 0; padding: 24px 20px 110px; }
+  .agenda-intro { margin-bottom: 28px; }
+  .agenda-intro .eyebrow { font-size: 10px; letter-spacing: 1.1px; }
+  .agenda-intro h1 { font-size: 28px; letter-spacing: -1.1px; }
+  .agenda-intro p { font-size: 12px; max-width: 250px; line-height: 1.7; }
+  .intro-symbol { display: none; }
+  #agendaToolbar { display: grid; gap: 16px; }
+  .section-label { font-size: 18px; }
+  #agendaToolbar .esc-panel-actions { justify-content: space-between; width: 100%; }
+  #agendaCount { font-size: 12px; }
+  .btn-fill,.btn-outline,.esc-btn-sm { padding: 10px 12px; font-size: 12px; }
+  .esc-view-btn { font-size: 13px; padding: 7px 10px; }
+  .agenda-filter-panel { margin-bottom: 8px; }
+  .agenda-filter-panel summary { font-size: 13px; }
+  .agenda-filters { display: grid; gap: 12px; }
+  .agenda-filters input,.agenda-filters select { font-size: 16px; }
+  .agenda-month { font-size: 12px; }
+  .agenda-card { padding: 16px 12px; border-radius: 10px; }
+  .agenda-card-main { display: grid; grid-template-columns: 40px minmax(0,1fr); gap: 12px; }
+  .agenda-date { width: 40px; flex-basis: 40px; }
+  .agenda-date strong { font-size: 27px; }
+  .agenda-date span { font-size: 10px; }
+  .agenda-card-content { padding-left: 12px; }
+  .agenda-card h3 { font-size: 15px; }
+  .agenda-when { font-size: 12px; }
+  .agenda-leader { font-size: 12px; }
+  .agenda-card-action { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; padding-left: 12px; gap: 4px; flex-wrap: wrap; }
+  .service-status { font-size: 11px; padding: 4px 6px; }
+  .agenda-card-action button { font-size: 12px; padding: 7px 4px; min-height: 44px; }
+  .agenda-card-next { padding: 20px 18px 0; }
+  .featured-label { font-size: 10px; margin-bottom: 20px; }
+  .featured-caption { display: none; }
+  .agenda-card-next .agenda-card-main { grid-template-columns: 56px minmax(0,1fr); gap: 14px; }
+  .agenda-card-next .agenda-date { width: 56px; }
+  .agenda-card-next .agenda-card-content { padding: 0; }
+  .agenda-card-next h3 { font-size: 19px; line-height: 1.35; }
+  .agenda-card-next .agenda-leader { margin-top: 7px; }
+  .agenda-card-next .agenda-card-action { grid-column: 1/-1; padding: 0; gap: 10px; }
+  .agenda-card-next .btn-fill { padding: 10px 14px; }
+  .featured-preparation { grid-template-columns: 1fr 1fr; margin-top: 18px; padding: 16px 0; gap: 16px 8px; }
+  .featured-preparation > div:last-child { grid-column: 1/-1; }
+  .featured-preparation small { font-size: 9px; }
+  .featured-preparation strong { font-size: 12px; }
+  .featured-preparation svg { width: 16px; }
   .service-heading { padding: 22px 18px; align-items: flex-start; flex-wrap: wrap; }
-  .service-heading h2 { font-size: 1.5rem; }
+  .service-heading h2 { font-size: 25px; }
+  .service-heading .eyebrow { font-size: 13px; }
   .detail-tabs { padding: 0 12px; gap: 8px; display: grid; grid-template-columns: .8fr 1fr 1.15fr; }
-  .detail-tabs button { font-size: .8rem; min-width: 0; }
+  .detail-tabs button { font-size: 13px; min-width: 0; }
   .detail-content { padding: 22px 16px; }
-  .worship-intro, .team-read, .department-grid { grid-template-columns: 1fr; }
-  .detail-back { align-items: center; }
-  .detail-back button { font-size: .8rem; }
+  .worship-intro,.team-read,.department-grid { grid-template-columns: 1fr; }
+  .detail-back { align-items: center; gap: 8px; }
+  .detail-back button { font-size: 13px; }
   .detail-back .btn-outline { padding: 8px; }
   .edit-notice { padding: 12px 18px; }
   .order-moment { padding-left: 0; padding-right: 0; gap: 10px; grid-template-columns: 48px 1fr; }
-  .esc-cal-cell { min-width: 0; }
-  .esc-cal-badge { font-size: .65rem; overflow-wrap: anywhere; white-space: normal; }
-  .esc-prog-tabela, .esc-prog-tabela tbody { display: block; width: 100%; min-width: 0; }
+  .esc-calendario { padding: 10px; }
+  .esc-cal-cell { min-width: 0; padding: 4px; }
+  .esc-cal-badge { font-size: 10px; padding: 4px 2px; }
+  .esc-cal-mes { font-size: 17px; }
+  .esc-prog-tabela,.esc-prog-tabela tbody { display: block; width: 100%; min-width: 0; }
   .esc-prog-tabela thead { display: none; }
   .esc-prog-tabela tr { display: block; padding: 12px 0; border-bottom: 1px solid var(--line); }
   .esc-prog-tabela td { display: block; width: 100% !important; padding: 5px 0; border: 0; }
@@ -132,20 +271,32 @@ button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-v
   .esc-prog-tabela tr:not(.esc-prog-secao) td:nth-child(2)::before { content: 'Momento'; }
   .esc-prog-tabela tr:not(.esc-prog-secao) td:nth-child(3)::before { content: 'Responsável'; }
   .esc-prog-tabela tr:not(.esc-prog-secao) td:nth-child(4)::before { content: 'Músicas'; }
-  .esc-prog-tabela td::before { display: block; font-size: .8rem; color: var(--muted); }
+  .esc-prog-tabela td::before { display: block; font-size: 12px; color: var(--muted); }
 }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-}
+@media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 @media print {
   body { background: white; color: black; }
-  .esc-top, .esc-tabs, .detail-back, .detail-tabs, .detail-content, .edit-notice, .service-heading > button, .esc-panel-head, .agenda-intro, .agenda-filters { display: none !important; }
-  .esc-main { padding: 0; max-width: none; }
+  .app-sidebar,.esc-top,.esc-tabs,.detail-back,.detail-tabs,.detail-content,.edit-notice,.service-heading > button,.esc-panel-head,.agenda-intro,.agenda-filters { display: none !important; }
+  .esc-main { padding: 0; margin: 0; max-width: none; }
   .service-detail { border: 0; }
   .service-heading { padding: 0 0 20px; }
   .print-service { display: block; }
   .print-service > h3 { margin: 24px 0 12px; }
   .print-service button { display: none; }
   .print-service input { border: 0; }
-  .order-moment, .team-read li, .department-grid > div { break-inside: avoid; }
+  .order-moment,.team-read li,.department-grid > div { break-inside: avoid; }
+}
+/* Form labels stay beside checkboxes, including on narrow screens. */
+.app-brand small { font-size: 8px; white-space: nowrap; letter-spacing: 1.4px; }
+input[type="checkbox"] { min-height: 18px; width: 18px; height: 18px; flex: 0 0 18px; accent-color: var(--brand); }
+.esc-check,.esc-form-row > label.esc-check { display: flex; flex-direction: row; align-items: center; gap: 9px; min-height: 44px; text-transform: none; letter-spacing: 0; font-size: 13px; cursor: pointer; }
+.esc-form-row > label,.esc-form-label { text-transform: none; letter-spacing: 0; font-size: 13px; }
+.esc-form-card > label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.esc-form-card > label input,.esc-form-card > label textarea { width: 100%; }
+.esc-form-row { align-items: center; }
+.esc-empty { background: var(--bg); border-style: solid; text-align: left; }
+@media (max-width: 760px) {
+  .esc-form-card input:not([type="checkbox"]),.esc-form-card select,.esc-form-card textarea { font-size: 16px; max-width: 100%; }
+  .esc-form-inline { display: grid; grid-template-columns: 1fr; }
+  .esc-form-inline label { min-width: 0; }
 }

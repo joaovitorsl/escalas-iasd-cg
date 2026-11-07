@@ -8,7 +8,7 @@
   <title>Escalas · IASD Central de Campina Grande</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="agenda.css" />
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
@@ -22,42 +22,36 @@
 </head>
 <body>
 
-  <header class="esc-top">
-    <div class="esc-brand">
-      <strong>Central <span class="brand-dot">/</span> Louvor</strong>
-      <span class="tag">IASD Central de Campina Grande</span>
-    </div>
-    <div class="esc-persist">
-      <span class="esc-status" id="saveStatus" role="status" aria-live="polite">carregando…</span>
-      <button class="esc-icon-btn" id="btnTema" type="button" title="Alternar tema claro/escuro">🌙</button>
-
-    </div>
-  </header>
-
-  <nav class="esc-tabs" id="tabsNav">
-    <button class="esc-tab active" data-tab="escalas" type="button">Agenda de cultos</button>
-    <button class="esc-tab" data-tab="equipe" type="button">Pessoas</button>
-    <details class="organize-menu"><summary>Organizar</summary><div>
-      <button class="esc-tab" data-tab="modelos" type="button">Modelos de culto</button>
-      <button class="esc-tab" data-tab="temas" type="button">Temas</button>
-      <button class="esc-tab" data-tab="grupos" type="button">Grupos convidados</button>
-      <button class="esc-tab" data-tab="config" type="button">Configurações e cópias</button>
-    </div></details>
-  </nav>
+  <aside class="app-sidebar">
+    <div class="app-brand"><span class="brand-symbol" aria-hidden="true">c<span>•</span></span><div><strong>central<span>.</span></strong><small>JUNTOS NO LOUVOR</small></div></div>
+    <nav class="esc-tabs" id="tabsNav" aria-label="Navegação principal">
+      <span class="nav-caption">MINISTÉRIO DE LOUVOR</span>
+      <button class="esc-tab active" data-tab="escalas" type="button"><span data-icon="calendar"></span><span>Agenda de cultos</span></button>
+      <button class="esc-tab" data-tab="equipe" type="button"><span data-icon="people"></span><span>Pessoas</span></button>
+      <details class="organize-menu" open><summary><span data-icon="grid"></span><span>Organizar</span><span class="menu-chevron">⌄</span></summary><div>
+        <button class="esc-tab" data-tab="modelos" type="button"><span data-icon="order"></span><span>Modelos de culto</span></button>
+        <button class="esc-tab" data-tab="temas" type="button"><span data-icon="bookmark"></span><span>Temas</span></button>
+        <button class="esc-tab" data-tab="grupos" type="button"><span data-icon="music"></span><span>Grupos convidados</span></button>
+        <button class="esc-tab" data-tab="config" type="button"><span data-icon="settings"></span><span>Configurações e cópias</span></button>
+      </div></details>
+    </nav>
+    <div class="sidebar-church"><span class="church-monogram">CG</span><div><strong>IASD Central</strong><small>Campina Grande · PB</small></div></div>
+  </aside>
+  <header class="esc-top"><div class="workspace-label">Nossa igreja <span>/</span> <strong id="workspaceTitle">Agenda de cultos</strong></div><div class="esc-persist"><span class="esc-status" id="saveStatus" role="status" aria-live="polite">carregando…</span><button class="esc-icon-btn" id="btnTema" type="button" title="Alternar tema claro/escuro"></button></div></header>
 
   <main class="esc-main">
 
     <!-- ───── ESCALAS ───── -->
     <section class="esc-panel active" id="panel-escalas">
-      <div class="agenda-intro" id="agendaIntro"><span class="eyebrow">IASD Central de Campina Grande</span><h1 id="agendaTitle" tabindex="-1">Vamos preparar<br />o próximo culto.</h1><p>Quem participa, o que vamos cantar e a ordem do culto.<br class="desktop-break" /> Tudo junto, para cada pessoa encontrar sua parte.</p></div>
+      <div class="agenda-intro" id="agendaIntro"><div><span class="eyebrow" id="agendaToday">NOSSA AGENDA</span><h1 id="agendaTitle" tabindex="-1">Cada culto, juntos<span>.</span></h1><p>Uma só agenda para preparar, servir e louvar.</p></div><div class="intro-symbol" aria-hidden="true" data-icon="music"></div></div>
       <div class="esc-panel-head" id="agendaToolbar">
-        <h2 class="section-label">Agenda <span id="agendaCount"></span></h2>
+        <h2 class="section-label">Próximos cultos <span id="agendaCount"></span></h2>
         <div class="esc-panel-actions">
           <div class="esc-view-toggle">
             <button class="esc-view-btn active" id="btnVerLista" type="button">Lista</button>
             <button class="esc-view-btn" id="btnVerCalendario" type="button">Calendário</button>
           </div>
-          <button class="btn-outline esc-btn-sm" id="btnNovoEspecial" type="button">+ Adicionar culto</button>
+          <button class="btn-fill esc-btn-sm" id="btnNovoEspecial" type="button">+ Adicionar culto</button>
         </div>
       </div>
 
