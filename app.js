@@ -1,33 +1,27 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+// Local previews never connect to the church's shared database.
+const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+let setDoc, onSnapshot, docRef;
+if (!LOCAL_PREVIEW) {
+  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js");
+  const firestore = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+  setDoc = firestore.setDoc;
+  onSnapshot = firestore.onSnapshot;
 
-const firebaseConfig = {
+  const firebaseConfig = {
   apiKey: "AIzaSyCjs-et-tcz6ggSxQ54TZOpvpXQLJ2p-NI",
   authDomain: "escala-central-745a9.firebaseapp.com",
   projectId: "escala-central-745a9",
   storageBucket: "escala-central-745a9.firebasestorage.app",
   messagingSenderId: "926450456877",
   appId: "1:926450456877:web:f4ff8ec7a1455e29fe5ba4"
-};
+  };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-// Referência para o nosso documento único no banco
-const docRef = doc(db, "iasd_cg", "estado_global");
+  const app = initializeApp(firebaseConfig);
+  docRef = firestore.doc(firestore.getFirestore(app), "iasd_cg", "estado_global");
+}
 
-/* ─────────────────────────────────────────────────────────
-   Escalas · Viver e Louvar — app.js
-   Gerenciador de escalas do TIME DE MÚSICA (instrumentos + vozes)
-   100% client-side. Sem backend: estado vive em localStorage e é
-   exportado/aberto como arquivo .json ao clicar em Salvar/Abrir arquivo.
-
-   Fora de escopo de propósito: pregador, ancião, diácono, sonoplastia,
-   transmissão, recepção etc. — a escala completa da igreja é mais
-   complexa que isso, mas aqui o foco é só a parte de música. Esses
-   papéis ainda podem ser anotados como texto livre no "programa" do
-   culto (ex: "Pregação — Pr. Paulo"), só não têm sorteio/substituição.
-   ───────────────────────────────────────────────────────── */
-
+// A single service connects its agenda, worship team, departments and order.
+// Localhost uses only browser storage. Production retains the existing Firestore document.
 const STORAGE_KEY = "viverLouvarEscalas.v1";
 const WEEKS_AHEAD = 8;
 
@@ -49,7 +43,7 @@ const NIVEIS_HABILIDADE = [
   { id: "avancado", nome: "Avançado" },
 ];
 const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-const STATUS_LABEL = { aberto: "Aberto", convidado: "Convidado", confirmado: "Confirmado", recusado: "Recusado" };
+const STATUS_LABEL = { aberto: "Aberto", convidado: "A confirmar", confirmado: "Confirmado", recusado: "Não pode" };
 
 /* modelos padrão de programa (ordem do culto), um por tipo de culto recorrente */
 const PROGRAMA_PADRAO = {
@@ -393,6 +387,16 @@ function novoEstado() {
 /* ── estado em memória ── */
 let state = novoEstado();
 let activeTab = "escalas";
+let detalheSecao = "louvor";
+let editandoCulto = false;
+let syncStatus = LOCAL_PREVIEW ? "local" : "loading";
+const CAMPOS_CULTO = [
+  ["ministerio", "Ministério responsável"], ["local", "Local"],
+  ["anciao", "Ancião"], ["diaconos", "Diáconos"],
+  ["diaconisas", "Diaconisas"], ["recepcao", "Recepção"],
+  ["sonoplastia", "Sonoplastia"], ["transmissao", "Transmissão"],
+  ["observacoes", "Orientações para a equipe"],
+];
 let viewMode = "lista"; // "lista" | "calendario"
 let calMes = null; // Date do 1º dia do mês exibido no calendário
 let fileHandle = null;
@@ -435,6 +439,9 @@ function persistLocal() {
   } catch (e) {
     console.warn("Falha ao guardar neste navegador", e);
   }
+  if (LOCAL_PREVIEW) { updateSaveStatus(); return; }
+  syncStatus = "pending";
+  updateSaveStatus();
   clearTimeout(firestoreDebounceTimer);
   firestoreDebounceTimer = setTimeout(enviarParaNuvem, FIRESTORE_DEBOUNCE_MS);
 }
@@ -444,7 +451,11 @@ async function enviarParaNuvem() {
   ultimoSeqEnviado = seq;
   try {
     await setDoc(docRef, { ...state, _seq: seq });
+    if (seq === ultimoSeqEnviado && !firestoreDebounceTimer) syncStatus = "saved";
+    updateSaveStatus();
   } catch (e) {
+    syncStatus = "error";
+    updateSaveStatus();
     console.error("Erro ao salvar na nuvem: ", e);
   }
 }
@@ -495,7 +506,7 @@ function aplicarJsonImportado(texto) {
       alert("Arquivo inválido: não parece ser um arquivo de escalas.");
       return false;
     }
-    if (dirty && !confirm("Você tem alterações não salvas neste navegador. Importar este arquivo vai substituí-las. Continuar?")) {
+    if (!confirm(LOCAL_PREVIEW ? "Restaurar esta cópia? Isso substitui os dados desta prévia local." : "Restaurar esta cópia? Isso substitui a agenda compartilhada de toda a equipe.")) {
       return false;
     }
     state = normalizarEstado(parsed);
@@ -676,16 +687,14 @@ document.getElementById("csvInput").addEventListener("change", async (e) => {
 function updateSaveStatus() {
   const el = document.getElementById("saveStatus");
   if (!el) return;
-  if (dirty) {
-    el.textContent = "Alterações guardadas neste navegador — clique em Salvar para exportar o arquivo";
-  } else if (lastSavedAt) {
-    const hora = lastSavedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    el.textContent = `Salvo${fileName ? " em " + fileName : ""} às ${hora}`;
-  } else if (fileName) {
-    el.textContent = `Aberto: ${fileName}`;
-  } else {
-    el.textContent = "Nenhum arquivo aberto (dados guardados neste navegador)";
-  }
+  const messages = {
+    local: "Prévia local · dados só neste navegador",
+    loading: "Conectando à agenda…",
+    pending: "Salvando alterações…",
+    saved: "Alterações salvas na nuvem",
+    error: "Sem sincronização · confira sua conexão",
+  };
+  el.textContent = messages[syncStatus];
 }
 
 function carregarExemplo() {
@@ -948,11 +957,8 @@ function resumoPreenchimento(culto) {
 }
 
 function classeSaudeCulto(culto) {
-  if (culto.grupoMusicalId) return "esc-cal-ok";
-  const preenchido = culto.slots.some((s) => s.membroId);
-  if (!preenchido) return "esc-cal-vazio";
-  const temPianoOuViolao = culto.slots.some((s) => s.tipo === "instrumento" && (s.instrumento === "piano" || s.instrumento === "violao") && s.membroId);
-  return temPianoOuViolao ? "esc-cal-ok" : "esc-cal-alerta";
+  const status = statusLouvor(culto);
+  return status.classe === "confirmed" ? "esc-cal-ok" : status.classe === "pending" ? "esc-cal-alerta" : "esc-cal-vazio";
 }
 
 /* ── render: Escalas · vaga individual ── */
@@ -990,7 +996,7 @@ function slotHtml(culto, slot) {
     <div class="esc-slot esc-slot-${slot.status}">
       <button class="esc-slot-remove" data-action="remove-slot" data-culto="${culto.id}" data-slot="${slot.id}" title="Remover vaga">×</button>
       <div class="esc-slot-label">${escapeHtml(label)}</div>
-      <select data-action="assign-slot" data-culto="${culto.id}" data-slot="${slot.id}">${options}</select>
+      <select aria-label="Pessoa para ${escapeHtml(label)}" data-action="assign-slot" data-culto="${culto.id}" data-slot="${slot.id}">${options}</select>
       <div class="esc-slot-status">${botoesStatus}</div>
       ${suggestBtn}
       ${suggestBlock}
@@ -1032,13 +1038,13 @@ function ministranteSelectHtml(culto) {
     .filter(Boolean)
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   if (!membrosAtribuidos.length) {
-    return `<div class="esc-ministra"><span class="esc-ministra-label">Quem ministra</span><em class="esc-ministra-vazio">escale alguém primeiro</em></div>`;
+    return `<div class="esc-ministra"><span class="esc-ministra-label">Quem conduz o louvor</span><em class="esc-ministra-vazio">escale alguém primeiro</em></div>`;
   }
   const opcoes = membrosAtribuidos
     .map((m) => `<option value="${m.id}" ${m.id === culto.ministranteId ? "selected" : ""}>${escapeHtml(m.nome)}${m.podeMinistrar ? " ★" : ""}</option>`)
     .join("");
   return `<div class="esc-ministra">
-    <span class="esc-ministra-label">Quem ministra</span>
+    <span class="esc-ministra-label">Quem conduz o louvor</span>
     <select data-action="set-ministrante" data-culto="${culto.id}">
       <option value="">— a definir —</option>
       ${opcoes}
@@ -1173,20 +1179,19 @@ function grupoMusicalSelectHtml(culto) {
   </div>`;
 }
 
-function cultoCardHtml(culto) {
+function cultoEditorHtml(culto) {
   const aoVivo = cultoEstaAoVivo(culto);
   const especialTag = culto.especial ? `<span class="tag">especial</span>` : "";
-  const vivoTag = aoVivo ? `<span class="tag esc-tag-vivo">● ao vivo agora</span>` : "";
+  const vivoTag = aoVivo ? `<span class="tag esc-tag-vivo">Horário previsto do culto</span>` : "";
   const tema = culto.temaId ? state.temasCulto.find((t) => t.id === culto.temaId) : null;
   const temaTag = tema ? `<span class="tag">${escapeHtml(tema.nome)}</span>` : "";
-  const programaAbertoAqui = programaAberto.has(culto.id);
   const grupo = culto.grupoMusicalId ? state.gruposMusicais.find((g) => g.id === culto.grupoMusicalId) : null;
   const temGrupo = !!culto.grupoMusicalId;
 
   const acoesEscala = temGrupo
     ? ""
-    : `<button class="btn-outline esc-btn-sm" data-action="autofill" data-culto="${culto.id}">Gerar automaticamente</button>
-       <button class="btn-outline esc-btn-sm" data-action="reroll" data-culto="${culto.id}">Sortear de novo</button>
+    : `<button class="btn-outline esc-btn-sm" data-action="autofill" data-culto="${culto.id}">Sugerir equipe</button>
+       <button class="btn-outline esc-btn-sm" data-action="reroll" data-culto="${culto.id}">Refazer sugestões</button>
        <button class="btn-outline esc-btn-sm" data-action="limpar-escala" data-culto="${culto.id}">Limpar escala</button>`;
 
   const corpoEscala = temGrupo
@@ -1225,10 +1230,7 @@ function cultoCardHtml(culto) {
         </div>
       </header>
       ${corpoEscala}
-      <div class="esc-prog-toggle-wrap">
-        <button class="esc-link" data-action="toggle-programa" data-culto="${culto.id}">${programaAbertoAqui ? "ocultar programa do culto ▴" : "ver / editar programa do culto ▾"}</button>
-      </div>
-      ${programaAbertoAqui ? programaTabelaHtml(culto) : ""}
+
     </article>`;
 }
 
@@ -1242,37 +1244,106 @@ function ensaioSelectHtml(culto) {
 }
 
 /* ── render: Escalas · lista e calendário ── */
+function statusLouvor(culto) {
+  if (culto.grupoMusicalId) {
+    const grupo = state.gruposMusicais.find(g => g.id === culto.grupoMusicalId);
+    return { texto: grupo ? "Grupo convidado definido" : "Revisar grupo convidado", classe: grupo ? "neutral" : "pending" };
+  }
+  const slots = culto.slots || [];
+  const recusas = slots.filter(s => s.membroId && s.status === "recusado").length;
+  const vagas = slots.filter(s => !s.membroId || !state.membros.some(m => m.id === s.membroId)).length;
+  const pendentes = slots.filter(s => s.membroId && s.status !== "confirmado" && s.status !== "recusado").length;
+  if (recusas) return { texto: `${recusas} ${recusas === 1 ? "substituição necessária" : "substituições necessárias"}`, classe: "pending" };
+  if (vagas) return { texto: `${vagas} ${vagas === 1 ? "vaga para preencher" : "vagas para preencher"}`, classe: "pending" };
+  if (pendentes) return { texto: `${pendentes} ${pendentes === 1 ? "pessoa a confirmar" : "pessoas a confirmar"}`, classe: "pending" };
+  return { texto: slots.length ? "Equipe de louvor confirmada" : "Equipe ainda não definida", classe: slots.length ? "confirmed" : "neutral" };
+}
+
+function cultoResumoHtml(culto, primeiro) {
+  const status = statusLouvor(culto);
+  const data = parseISO(culto.data);
+  const mes = data.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  const lider = state.membros.find(m => m.id === culto.ministranteId);
+  const grupo = state.gruposMusicais.find(g => g.id === culto.grupoMusicalId);
+  const tema = state.temasCulto.find(t => t.id === culto.temaId);
+  return `<article class="agenda-card ${primeiro ? "agenda-card-next" : ""}">
+    <div class="agenda-date"><span>${mes}</span><strong>${data.getDate()}</strong><span>${data.getFullYear()}</span></div>
+    <div class="agenda-card-content">
+      ${primeiro ? '<span class="eyebrow">Próximo na agenda</span>' : ''}
+      <p class="agenda-when">${DIAS_SEMANA[data.getDay()]} · ${escapeHtml(culto.hora || "Horário a definir")}</p>
+      <h3>${escapeHtml(culto.nome)}</h3>
+      ${tema ? `<p>${escapeHtml(tema.nome)}</p>` : ""}
+      <p class="agenda-leader">${grupo ? escapeHtml(grupo.nome) : lider ? `Louvor com ${escapeHtml(lider.nome)}` : "Responsável pelo louvor a definir"}</p>
+      <span class="service-status ${status.classe}">${status.texto}</span>
+    </div>
+    <button class="${primeiro ? 'btn-fill' : 'btn-outline'}" data-action="abrir-culto" data-culto="${culto.id}">Ver culto <span aria-hidden="true">→</span></button>
+  </article>`;
+}
+
+function programaLeituraHtml(culto) {
+  if (!(culto.programa || []).length) return `<div class="detail-empty"><h3>A ordem do culto ainda não foi preparada</h3><p>Quem organiza pode usar “Editar” para adicionar os momentos, responsáveis e músicas.</p></div>`;
+  return `<ol class="service-order">${culto.programa.map(item => item.tipo === "secao"
+    ? `<li class="order-section">${escapeHtml(item.titulo)}</li>`
+    : `<li class="order-moment"><span class="order-time">${escapeHtml(item.hora || "—")}</span><div><h3>${escapeHtml(item.nome || "Momento sem nome")}</h3>${item.responsavel ? `<p class="order-person">${escapeHtml(item.responsavel)}</p>` : ''}${(item.musicas || []).filter(Boolean).map(m => `<p class="order-song">${escapeHtml(m)}</p>`).join('')}</div></li>`).join('')}</ol>`;
+}
+
+function louvorLeituraHtml(culto) {
+  const grupo = state.gruposMusicais.find(g => g.id === culto.grupoMusicalId);
+  const lider = state.membros.find(m => m.id === culto.ministranteId);
+  const slots = culto.slots || [];
+  return `<div class="worship-intro"><div><span class="eyebrow">Responsável pelo louvor</span><h3>${escapeHtml(grupo ? grupo.nome : lider ? lider.nome : 'A definir')}</h3></div><div><span class="eyebrow">Ensaio</span><p>${culto.ensaioData ? `${formatDataLonga(culto.ensaioData)}${culto.ensaioHora ? ' · ' + escapeHtml(culto.ensaioHora) : ' · horário a definir'}` : 'Ainda não marcado'}</p></div></div>
+    ${culto.grupoMusicalId ? `<p class="detail-note">${grupo ? 'O grupo convidado conduz o louvor deste culto.' : 'O grupo desta escala não está mais cadastrado. Revise a escolha em Editar.'}</p>` :
+      `<ul class="team-read">${slots.map(slot => {
+        const pessoa = state.membros.find(m => m.id === slot.membroId);
+        const papel = slot.tipo === 'instrumento' ? nomeInstrumento(slot.instrumento) : slot.tipo === 'solo' ? 'Música especial' : slot.naipeAlvo || 'Voz';
+        return `<li><div><span class="eyebrow">${escapeHtml(papel)}</span><strong>${escapeHtml(pessoa ? pessoa.nome : slot.membroId ? 'Pessoa não encontrada' : 'Pessoa a definir')}</strong></div><span class="service-status ${pessoa && slot.status === 'confirmado' ? 'confirmed' : 'pending'}">${pessoa ? STATUS_LABEL[slot.status] || 'A confirmar' : 'Vaga aberta'}</span></li>`;
+      }).join('')}</ul>${!slots.length ? '<p class="detail-note">Nenhuma vaga de louvor cadastrada para este culto.</p>' : ''}`}
+    <button class="btn-outline" data-action="secao-culto" data-secao="programa" data-culto="${culto.id}">Ver músicas na ordem do culto →</button>`;
+}
+
+function departamentosHtml(culto) {
+  const dados = culto.organizacao || {};
+  return `<p class="detail-note">Os responsáveis e orientações ficam junto da escala de louvor. A pregação e os demais momentos são preenchidos na ordem do culto.</p>
+    <div class="department-grid">${CAMPOS_CULTO.map(([key, label]) => editandoCulto
+      ? `<label>${label}<input type="text" data-action="organizacao" data-field="${key}" data-culto="${culto.id}" value="${escapeHtml(dados[key] || '')}" placeholder="A definir" /></label>`
+      : `<div><span class="eyebrow">${label}</span><p>${escapeHtml(dados[key] || 'A definir')}</p></div>`).join('')}</div>`;
+}
+
+function cultoDetalheHtml(culto) {
+  const status = statusLouvor(culto);
+  const secoes = [['louvor', 'Equipe de louvor'], ['programa', 'Ordem do culto'], ['igreja', 'Outros departamentos']];
+  const conteudo = detalheSecao === 'programa' ? (editandoCulto ? programaTabelaHtml(culto) : programaLeituraHtml(culto))
+    : detalheSecao === 'igreja' ? departamentosHtml(culto)
+    : editandoCulto ? cultoEditorHtml(culto) : louvorLeituraHtml(culto);
+  return `<div class="detail-back"><button class="esc-link" data-action="limpar-filtro-culto">← Voltar para a agenda</button><button class="btn-outline" data-action="imprimir-culto">Imprimir culto</button></div>
+    <article class="service-detail">
+      <header class="service-heading"><div><p class="eyebrow">${formatDataLonga(culto.data)} · ${escapeHtml(culto.hora || 'Horário a definir')}</p><h2 tabindex="-1" id="cultoTitulo">${escapeHtml(culto.nome)}</h2><span class="service-status ${status.classe}">${status.texto}</span></div>
+      <button class="${editandoCulto ? 'btn-fill' : 'btn-outline'}" data-action="editar-culto" data-culto="${culto.id}">${editandoCulto ? 'Concluir edição' : 'Editar'}</button></header>
+      ${editandoCulto ? '<p class="edit-notice">Modo de edição · as alterações são salvas automaticamente.</p>' : ''}
+      <nav class="detail-tabs" aria-label="Informações do culto">${secoes.map(([id, label]) => `<button class="${detalheSecao === id ? 'active' : ''}" aria-label="${label}" aria-pressed="${detalheSecao === id}" data-action="secao-culto" data-secao="${id}" data-culto="${culto.id}">${id === 'louvor' ? 'Louvor' : id === 'igreja' ? 'Departamentos' : label}</button>`).join('')}</nav>
+      <div class="detail-content">${conteudo}</div>
+      <div class="print-service"><h3>Equipe de louvor</h3>${louvorLeituraHtml(culto)}<h3>Ordem do culto</h3>${programaLeituraHtml(culto)}<h3>Outros departamentos</h3>${departamentosHtml(culto)}</div>
+    </article>`;
+}
+
 function renderListaCultos() {
   const container = document.getElementById("cultosList");
-  if (!state.membros.length) {
-    container.innerHTML = `<p class="esc-empty">Cadastre a equipe na aba <strong style="color:var(--text)">Equipe</strong> para começar a preencher as vagas (ou carregue dados de exemplo em Configurações).</p>`;
-    return;
-  }
-  // veio de um clique num culto do calendário — mostra só ele, não a lista toda
-  if (cultoFiltroId) {
-    const culto = state.cultos.find((c) => c.id === cultoFiltroId);
-    if (culto) {
-      container.innerHTML = `
-        <div class="esc-filtro-aviso">
-          <button class="esc-link" data-action="limpar-filtro-culto">← ver todos os cultos</button>
-        </div>
-        ${cultoCardHtml(culto)}`;
-      return;
-    }
-    cultoFiltroId = null;
-  }
-
+  const selecionado = state.cultos.find(c => c.id === cultoFiltroId);
+  document.getElementById("agendaIntro").hidden = !!selecionado;
+  document.getElementById("agendaToolbar").hidden = !!selecionado;
+  document.getElementById("agendaFilters").hidden = !!selecionado || viewMode === "calendario";
+  if (selecionado) { container.innerHTML = cultoDetalheHtml(selecionado); return; }
+  cultoFiltroId = null;
   const mostrarPassados = document.getElementById("chkPassados").checked;
-  const hojeISO = todayISO();
-  const lista = state.cultos
-    .filter((c) => mostrarPassados || c.data >= hojeISO)
-    .sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
-
-  if (!lista.length) {
-    container.innerHTML = `<p class="esc-empty">Nenhum culto ${mostrarPassados ? "" : "futuro "}encontrado. Confira os tipos de culto em Configurações.</p>`;
-    return;
-  }
-  container.innerHTML = lista.map(cultoCardHtml).join("");
+  const busca = document.getElementById("buscarCulto").value.trim().toLocaleLowerCase('pt-BR');
+  const filtro = document.getElementById("filtroCulto").value;
+  const lista = state.cultos.filter(c => (mostrarPassados || c.data >= todayISO()) &&
+    (!filtro || String(parseISO(c.data).getDay()) === filtro) &&
+    (!busca || [c.nome, c.data, formatDataLonga(c.data), state.temasCulto.find(t => t.id === c.temaId)?.nome, c.organizacao?.ministerio].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(busca)))
+    .sort((a,b) => (a.data + a.hora).localeCompare(b.data + b.hora));
+  const proximo = state.cultos.filter(c => c.data >= todayISO()).sort((a,b) => (a.data + a.hora).localeCompare(b.data + b.hora))[0];
+  container.innerHTML = lista.length ? lista.map(c => cultoResumoHtml(c, c.id === proximo?.id)).join('') : '<div class="detail-empty"><h3>Nenhum culto encontrado</h3><p>Tente outro dia ou outra busca. Você também pode adicionar um culto.</p></div>';
+  document.getElementById("agendaCount").textContent = `${lista.length} ${lista.length === 1 ? 'culto' : 'cultos'}`;
 }
 
 /* temporada atual começa em jul/2026 — não faz sentido navegar o calendário
@@ -1311,7 +1382,7 @@ function renderCalendario() {
     const badges = cultosDoDia
       .map(
         (c) =>
-          `<button class="esc-cal-badge ${classeSaudeCulto(c)}" data-action="ir-para-culto" data-culto="${c.id}" title="${escapeHtml(c.nome)} · ${escapeHtml(c.hora)}">${escapeHtml(c.nome)}</button>`
+          `<button class="esc-cal-badge ${classeSaudeCulto(c)}" data-action="ir-para-culto" data-culto="${c.id}" aria-label="${escapeHtml(c.nome)} · ${escapeHtml(c.hora)} · ${statusLouvor(c).texto}" title="${escapeHtml(c.nome)} · ${escapeHtml(c.hora)} · ${statusLouvor(c).texto}">${escapeHtml(c.hora)} ${escapeHtml(c.nome)}</button>`
       )
       .join("");
     celulas += `
@@ -1329,6 +1400,7 @@ function setViewMode(modo) {
   document.getElementById("calendarioView").hidden = modo !== "calendario";
   document.getElementById("btnVerLista").classList.toggle("active", modo === "lista");
   document.getElementById("btnVerCalendario").classList.toggle("active", modo === "calendario");
+  document.getElementById("agendaFilters").hidden = modo === "calendario" || !!cultoFiltroId;
   if (modo === "calendario") renderCalendario();
 }
 
@@ -1555,7 +1627,7 @@ function atualizarOpcoesModeloEspecial() {
 function capturarFoco() {
   const el = document.activeElement;
   if (!el || !el.dataset || !["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return null;
-  const chave = ["action", "culto", "modelo", "item", "slot", "id", "musica"]
+  const chave = ["action", "culto", "modelo", "item", "slot", "id", "musica", "field"]
     .filter((k) => el.dataset[k] !== undefined)
     .map((k) => `[data-${k}="${CSS.escape(el.dataset[k])}"]`)
     .join("");
@@ -1603,6 +1675,7 @@ document.getElementById("tabsNav").addEventListener("click", (e) => {
   const btn = e.target.closest(".esc-tab");
   if (!btn) return;
   activeTab = btn.dataset.tab;
+  document.querySelector(".organize-menu").open = false;
   document.querySelectorAll(".esc-tab").forEach((b) => b.classList.toggle("active", b === btn));
   document.querySelectorAll(".esc-panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + activeTab));
   render();
@@ -1612,6 +1685,7 @@ document.getElementById("tabsNav").addEventListener("click", (e) => {
 document.getElementById("btnVerLista").addEventListener("click", () => {
   cultoFiltroId = null;
   setViewMode("lista");
+  renderListaCultos();
 });
 document.getElementById("btnVerCalendario").addEventListener("click", () => setViewMode("calendario"));
 document.getElementById("calMesAnterior").addEventListener("click", () => {
@@ -1635,6 +1709,8 @@ document.getElementById("calendarioGrid").addEventListener("click", (e) => {
   }
   // abre só esse culto, em vez da lista inteira
   cultoFiltroId = el.dataset.culto;
+  editandoCulto = false;
+  detalheSecao = "louvor";
   setViewMode("lista");
   renderListaCultos();
 });
@@ -1685,7 +1761,13 @@ cultosList.addEventListener("change", (e) => {
 cultosList.addEventListener("input", (e) => {
   const el = e.target;
   const culto = el.dataset.culto ? state.cultos.find((c) => c.id === el.dataset.culto) : null;
-  if (!culto || !el.dataset.item) return;
+  if (!culto) return;
+  if (el.dataset.action === "organizacao" && CAMPOS_CULTO.some(([key]) => key === el.dataset.field)) {
+    culto.organizacao = { ...(culto.organizacao || {}), [el.dataset.field]: el.value };
+    markDirty();
+    return;
+  }
+  if (!el.dataset.item) return;
   const item = (culto.programa || []).find((i) => i.id === el.dataset.item);
   if (!item) return;
   const action = el.dataset.action;
@@ -1705,13 +1787,36 @@ cultosList.addEventListener("click", (e) => {
   if (!el) return;
   if (el.dataset.action === "limpar-filtro-culto") {
     cultoFiltroId = null;
+    editandoCulto = false;
     renderListaCultos();
+    document.getElementById("agendaTitle").focus();
     return;
   }
   const culto = el.dataset.culto ? state.cultos.find((c) => c.id === el.dataset.culto) : null;
   const slot = culto && el.dataset.slot ? culto.slots.find((s) => s.id === el.dataset.slot) : null;
   const action = el.dataset.action;
 
+  if (action === "imprimir-culto") { window.print(); return; }
+  if (action === "abrir-culto" && culto) {
+    cultoFiltroId = culto.id;
+    detalheSecao = "louvor";
+    editandoCulto = false;
+    renderListaCultos();
+    document.getElementById("cultoTitulo").focus();
+    return;
+  }
+  if (action === "secao-culto" && culto) {
+    detalheSecao = el.dataset.secao;
+    renderListaCultos();
+    document.querySelector(`.detail-tabs [data-secao="${detalheSecao}"]`).focus();
+    return;
+  }
+  if (action === "editar-culto" && culto) {
+    editandoCulto = !editandoCulto;
+    renderListaCultos();
+    document.querySelector('[data-action="editar-culto"]').focus();
+    return;
+  }
   if (action === "autofill" && culto) autoFillCulto(culto, { somenteAbertos: true });
   else if (action === "reroll" && culto) autoFillCulto(culto, { somenteAbertos: false });
   else if (action === "limpar-escala" && culto) {
@@ -1839,10 +1944,13 @@ cultosList.addEventListener("click", (e) => {
   }
 });
 
+document.getElementById("buscarCulto").addEventListener("input", renderListaCultos);
+document.getElementById("filtroCulto").addEventListener("change", renderListaCultos);
 document.getElementById("chkPassados").addEventListener("change", renderListaCultos);
 
 document.getElementById("btnNovoEspecial").addEventListener("click", () => {
   document.getElementById("especialForm").hidden = false;
+  document.getElementById("especialNome").focus();
 });
 document.getElementById("especialCancelar").addEventListener("click", () => {
   document.getElementById("especialForm").hidden = true;
@@ -1850,14 +1958,15 @@ document.getElementById("especialCancelar").addEventListener("click", () => {
 document.getElementById("especialSalvar").addEventListener("click", () => {
   const nome = document.getElementById("especialNome").value.trim() || "Culto especial";
   const data = document.getElementById("especialData").value;
-  const hora = document.getElementById("especialHora").value || "19:30";
+  const hora = document.getElementById("especialHora").value || "19:00";
   const modelo = document.getElementById("especialModelo").value;
   if (!data) {
     alert("Escolha uma data.");
     return;
   }
+  const novoCultoId = uid();
   state.cultos.push({
-    id: uid(),
+    id: novoCultoId,
     tipoCultoId: null,
     data,
     hora,
@@ -1876,8 +1985,13 @@ document.getElementById("especialSalvar").addEventListener("click", () => {
   document.getElementById("especialData").value = "";
   document.getElementById("especialModelo").value = "";
   document.getElementById("especialForm").hidden = true;
+  cultoFiltroId = novoCultoId;
+  detalheSecao = "louvor";
+  editandoCulto = false;
+  setViewMode("lista");
   markDirty();
   render();
+  document.getElementById("cultoTitulo").focus();
 });
 
 /* ── eventos: Equipe ── */
@@ -2264,6 +2378,11 @@ document.getElementById("btnTema").addEventListener("click", () => {
 function boot() {
   atualizarBotaoTema();
   updateSaveStatus();
+  if (LOCAL_PREVIEW) {
+    state = loadLocal();
+    render();
+    return;
+  }
   onSnapshot(docRef, (docSnap) => {
     // se ainda há uma escrita local agendada (pessoa digitando), não sobrescreve
     // por cima dela com o que veio da nuvem — a nossa escrita vai sair em seguida
@@ -2273,10 +2392,14 @@ function boot() {
     // também) — o estado já está refletido aqui, não precisa reprocessar
     if (typeof bruto._seq === "number" && bruto._seq === ultimoSeqEnviado) return;
     state = normalizarEstado(bruto);
+    syncStatus = docSnap.metadata.fromCache ? "pending" : "saved";
+    updateSaveStatus();
     dirty = false;
     ensureUpcomingCultos();
     render();
   }, (error) => {
+    syncStatus = "error";
+    updateSaveStatus();
     console.error("Erro ao escutar o banco:", error);
     state = loadLocal();
     render();

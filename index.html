@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="agenda.css" />
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
   <script>
     // aplica o tema antes do primeiro paint, pra não piscar claro->escuro
@@ -23,53 +24,62 @@
 
   <header class="esc-top">
     <div class="esc-brand">
-      <strong>Escalas</strong>
+      <strong>Central <span class="brand-dot">/</span> Louvor</strong>
       <span class="tag">IASD Central de Campina Grande</span>
     </div>
     <div class="esc-persist">
-      <span class="esc-status" id="saveStatus">carregando…</span>
+      <span class="esc-status" id="saveStatus" role="status" aria-live="polite">carregando…</span>
       <button class="esc-icon-btn" id="btnTema" type="button" title="Alternar tema claro/escuro">🌙</button>
-      <button class="btn-outline esc-btn-sm" id="btnAbrir" type="button">Abrir arquivo</button>
-      <button class="btn-fill esc-btn-sm" id="btnSalvar" type="button">Salvar</button>
+
     </div>
   </header>
 
   <nav class="esc-tabs" id="tabsNav">
-    <button class="esc-tab active" data-tab="escalas" type="button">Escalas</button>
-    <button class="esc-tab" data-tab="equipe" type="button">Equipe</button>
-    <button class="esc-tab" data-tab="modelos" type="button">Doxologias</button>
-    <button class="esc-tab" data-tab="temas" type="button">Temas</button>
-    <button class="esc-tab" data-tab="grupos" type="button">Grupos</button>
-    <button class="esc-tab" data-tab="config" type="button">Configurações</button>
+    <button class="esc-tab active" data-tab="escalas" type="button">Agenda de cultos</button>
+    <button class="esc-tab" data-tab="equipe" type="button">Pessoas</button>
+    <details class="organize-menu"><summary>Organizar</summary><div>
+      <button class="esc-tab" data-tab="modelos" type="button">Modelos de culto</button>
+      <button class="esc-tab" data-tab="temas" type="button">Temas</button>
+      <button class="esc-tab" data-tab="grupos" type="button">Grupos convidados</button>
+      <button class="esc-tab" data-tab="config" type="button">Configurações e cópias</button>
+    </div></details>
   </nav>
 
   <main class="esc-main">
 
     <!-- ───── ESCALAS ───── -->
     <section class="esc-panel active" id="panel-escalas">
-      <div class="esc-panel-head">
-        <h2 class="section-label">Próximos cultos</h2>
+      <div class="agenda-intro" id="agendaIntro"><span class="eyebrow">IASD Central de Campina Grande</span><h1 id="agendaTitle" tabindex="-1">Vamos preparar<br />o próximo culto.</h1><p>Quem participa, o que vamos cantar e a ordem do culto.<br class="desktop-break" /> Tudo junto, para cada pessoa encontrar sua parte.</p></div>
+      <div class="esc-panel-head" id="agendaToolbar">
+        <h2 class="section-label">Agenda <span id="agendaCount"></span></h2>
         <div class="esc-panel-actions">
           <div class="esc-view-toggle">
             <button class="esc-view-btn active" id="btnVerLista" type="button">Lista</button>
             <button class="esc-view-btn" id="btnVerCalendario" type="button">Calendário</button>
           </div>
-          <label class="esc-check"><input type="checkbox" id="chkPassados" /> mostrar cultos passados</label>
-          <button class="btn-outline esc-btn-sm" id="btnNovoEspecial" type="button">+ Culto especial</button>
+          <button class="btn-outline esc-btn-sm" id="btnNovoEspecial" type="button">+ Adicionar culto</button>
         </div>
       </div>
 
       <div class="esc-form-inline" id="especialForm" hidden>
-        <input type="text" id="especialNome" placeholder="Nome do culto (ex: Culto de Ano Novo)" />
-        <input type="date" id="especialData" />
-        <input type="time" id="especialHora" value="19:30" />
-        <select id="especialModelo">
+        <label>Nome do culto<input type="text" id="especialNome" placeholder="Ex.: Culto de gratidão" /></label>
+        <label>Data<input type="date" id="especialData" /></label>
+        <label>Horário<input type="time" id="especialHora" value="19:00" /></label>
+        <label>Modelo da ordem do culto<select id="especialModelo">
           <option value="">sem modelo de programa</option>
-        </select>
+        </select></label>
         <button class="btn-fill esc-btn-sm" id="especialSalvar" type="button">Adicionar</button>
         <button class="btn-outline esc-btn-sm" id="especialCancelar" type="button">Cancelar</button>
       </div>
 
+      <details class="agenda-filter-panel" id="agendaFilters">
+        <summary>Buscar ou filtrar cultos</summary>
+        <div class="agenda-filters">
+        <label class="search-label">Buscar culto<input id="buscarCulto" type="search" placeholder="Nome, tema ou data…" /></label>
+        <label>Dia da semana<select id="filtroCulto"><option value="">Todos os dias</option><option value="6">Sábado</option><option value="0">Domingo</option><option value="3">Quarta-feira</option><option value="1">Segunda-feira</option><option value="2">Terça-feira</option><option value="4">Quinta-feira</option><option value="5">Sexta-feira</option></select></label>
+        <label class="esc-check"><input type="checkbox" id="chkPassados" /> Incluir cultos passados</label>
+        </div>
+      </details>
       <div id="cultosList" class="esc-cultos-list"></div>
 
       <div class="esc-calendario" id="calendarioView" hidden>
@@ -137,7 +147,7 @@
           <label class="esc-check"><input type="checkbox" id="pessoaPodeMinistrar" /> Se sente à vontade para ministrar (liderar o culto)</label>
         </div>
         <div class="esc-form-row">
-          <label class="esc-check"><input type="checkbox" id="pessoaExterno" /> Convidado(a) externo(a) (não é da igreja — só é escalado(a) pra tapar buraco, nunca por padrão)</label>
+          <label class="esc-check"><input type="checkbox" id="pessoaExterno" /> Convidado(a) de outra igreja (escolhido manualmente na escala)</label>
         </div>
         <label>Contato (telefone/WhatsApp/e-mail) <input type="text" id="pessoaContato" placeholder="Ex: (83) 99999-9999" /></label>
         <label>Observações <textarea id="pessoaObs" rows="2" placeholder="Opcional"></textarea></label>
@@ -158,10 +168,7 @@
         partida do programa — e o programa de cada culto continua 100% editável depois. Crie
         modelos novos pra ocasiões especiais (ex: uma "Doxologia" ou uma ordem de Santa Ceia
         diferente da usual) e escolha-os ao criar um culto especial ou num tipo de culto.
-        "Baixar modelo CSV"/"importar CSV" (aqui e em cada culto) servem pra preencher o
-        programa em lote: baixe o CSV, peça pra alguma IA completar a partir de uma foto/PDF
-        do programa (mantendo as colunas <code>Tipo,Hora,Momento,Responsável,Músicas</code> —
-        várias músicas na mesma célula separadas por <code>|</code>) e importe de volta.
+        Revise responsáveis e músicas antes de usar um modelo em uma nova data.
       </p>
       <div id="modelosProgramaList" class="esc-modelos-list"></div>
       <button class="btn-outline esc-btn-sm" id="btnNovoModelo" type="button">+ Modelo de programa</button>
@@ -202,12 +209,13 @@
       </div>
       <p class="esc-help">
         As alterações sincronizam automaticamente entre todos os dispositivos (nuvem
-        compartilhada da equipe) — não é preciso "Salvar" pra outras pessoas verem. O botão
-        <strong style="color:var(--text)">Salvar</strong>/"Baixar cópia" serve pra guardar um
-        arquivo <code>.json</code> de backup no seu computador, e "Abrir arquivo" pra restaurar
+        compartilhada da equipe) — não é preciso "Salvar" pra outras pessoas verem. Os botões de cópia servem para guardar um
+        arquivo <code>.json</code> de backup no seu computador, e "Restaurar cópia" para restaurar
         um backup (isso substitui os dados de todo mundo, use com cuidado).
       </p>
       <div class="esc-data-actions">
+        <button class="btn-outline esc-btn-sm" id="btnAbrir" type="button">Restaurar cópia</button>
+        <button class="btn-outline esc-btn-sm" id="btnSalvar" type="button">Salvar cópia em arquivo</button>
         <button class="btn-outline esc-btn-sm" id="btnBaixarCopia" type="button">Baixar cópia (.json)</button>
         <button class="btn-outline esc-btn-sm" id="btnExemplo" type="button">Carregar dados de exemplo</button>
         <button class="btn-outline esc-btn-sm esc-danger" id="btnLimpar" type="button">Limpar todos os dados</button>

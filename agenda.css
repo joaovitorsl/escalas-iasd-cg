@@ -1,0 +1,151 @@
+/* Agenda and service reading view. Existing editing tools keep their layout. */
+body { background: var(--bg-soft); font-size: 16px; line-height: 1.55; }
+button, input, select, textarea { font: inherit; }
+button, summary { touch-action: manipulation; }
+button, input, select, summary { min-height: 44px; }
+button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.esc-top { background: var(--bg); padding: 22px max(24px, calc((100% - 1080px) / 2)); }
+.esc-brand { display: block; }
+.esc-brand strong { font-family: var(--sans); font-size: 1.3rem; letter-spacing: -.05em; }
+.brand-dot { color: var(--brand); margin: 0 5px; }
+.esc-brand > .tag { border: 0; padding: 0; text-transform: none; letter-spacing: 0; font-size: .75rem; }
+.esc-status { font-size: .8rem; max-width: 270px; }
+.esc-tabs { overflow: visible; background: var(--bg); padding: 0 max(24px, calc((100% - 1080px) / 2)); gap: 24px; }
+.esc-tab { text-transform: none; letter-spacing: 0; font-size: .95rem; padding: 16px 0; }
+.esc-main { max-width: 1128px; padding: 42px 24px 80px; }
+.organize-menu { position: relative; margin-left: auto; }
+.organize-menu summary { padding: 16px 8px; color: var(--muted); cursor: pointer; }
+.organize-menu > div { position: absolute; right: 0; top: 100%; z-index: 10; min-width: 240px; display: grid; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 8px 20px; box-shadow: 0 12px 30px #00000012; }
+.organize-menu .esc-tab { text-align: left; padding: 12px 0; }
+.agenda-intro { margin-bottom: 44px; }
+.eyebrow { display: block; font-size: .8rem; color: var(--muted); font-weight: 600; letter-spacing: .025em; }
+.agenda-intro > .eyebrow { color: var(--brand); margin-bottom: 14px; }
+.agenda-intro h1 { font-size: clamp(2.1rem, 4vw, 3.25rem); line-height: 1.13; letter-spacing: -.055em; font-weight: 600; margin-bottom: 18px; }
+.agenda-intro p { color: var(--muted); line-height: 1.75; }
+.section-label { font-size: 1.15rem; text-transform: none; letter-spacing: -.025em; color: var(--text); }
+#agendaCount { margin-left: 12px; font-size: .8rem; font-weight: 400; color: var(--muted); }
+.btn-fill, .btn-outline, .esc-btn-sm { font-size: .875rem; text-transform: none; letter-spacing: 0; padding: 10px 18px; border-radius: 10px; min-height: 44px; }
+.esc-link, .esc-check, .esc-view-btn { font-size: .875rem; letter-spacing: 0; text-transform: none; }
+.esc-icon-btn { width: 44px; height: 44px; }
+.agenda-filter-panel { margin-bottom: 20px; }
+.agenda-filter-panel > summary { cursor: pointer; color: var(--muted); font-size: .9rem; padding: 10px 0; }
+.agenda-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; padding: 12px 0; }
+.agenda-filters .esc-check { display: flex; min-height: 44px; }
+.agenda-filters .esc-check input { width: 18px; min-height: 18px; }
+.agenda-filters label { display: grid; gap: 6px; font-size: .8rem; color: var(--muted); }
+.agenda-filters .search-label { flex: 1; }
+.agenda-filters input, .agenda-filters select, .department-grid input { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; font-size: 1rem; }
+.esc-cultos-list { gap: 14px; }
+.agenda-card { display: flex; align-items: center; gap: 24px; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+.agenda-card-next { border: 1px solid rgba(var(--brand-rgb), .45); box-shadow: 0 4px 20px rgba(var(--brand-rgb), .05); }
+.agenda-date { width: 72px; flex: 0 0 72px; display: flex; flex-direction: column; align-items: center; border-right: 1px solid var(--line); padding-right: 20px; color: var(--muted); }
+.agenda-date span { font-size: .8rem; }
+.agenda-date span:first-child { text-transform: uppercase; letter-spacing: .08em; }
+.agenda-date strong { font-size: 2rem; line-height: 1.35; font-weight: 500; color: var(--text); }
+.agenda-card-content { flex: 1; min-width: 0; }
+.agenda-card-content > .eyebrow { color: var(--brand); margin-bottom: 6px; }
+.agenda-card h3 { font-size: 1.15rem; font-weight: 600; margin: 2px 0 5px; letter-spacing: -.025em; }
+.agenda-when, .agenda-leader { font-size: .875rem; color: var(--muted); }
+.agenda-leader { margin-bottom: 10px; }
+.service-status { display: inline-block; padding: 4px 9px; border-radius: 6px; font-size: .78rem; background: var(--bg-soft); color: var(--muted); }
+.service-status.pending { background: #fff0d4; color: #76500c; }
+.service-status.confirmed { background: #e6f3eb; color: #246341; }
+.detail-back { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 24px; }
+.service-detail { border: 1px solid var(--line); background: var(--bg); border-radius: 18px; overflow: hidden; }
+.service-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 30px; }
+.service-heading h2 { font-size: 1.8rem; letter-spacing: -.04em; margin: 6px 0 12px; }
+.detail-tabs { display: flex; gap: 24px; padding: 0 30px; border-bottom: 1px solid var(--line); }
+.detail-tabs button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 14px 0; color: var(--muted); cursor: pointer; font-size: .9rem; }
+.detail-tabs button.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+.detail-content { padding: 30px; }
+.worship-intro { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 26px; }
+.worship-intro h3 { font-size: 1.15rem; font-weight: 600; }
+.team-read { list-style: none; margin: 0 0 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.team-read li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+.team-read strong { display: block; font-weight: 600; }
+.service-order { list-style: none; }
+.order-section { padding: 14px 16px; background: var(--bg-soft); border-radius: 8px; font-weight: 600; margin: 16px 0 6px; }
+.order-section:first-child { margin-top: 0; }
+.order-moment { display: grid; grid-template-columns: 62px 1fr; gap: 16px; padding: 18px 12px; border-bottom: 1px solid var(--line); }
+.order-time { font-variant-numeric: tabular-nums; font-size: .9rem; color: var(--muted); }
+.order-moment h3 { font-size: 1rem; font-weight: 600; }
+.order-person { color: var(--muted); font-size: .9rem; margin-top: 4px; }
+.order-song { margin-top: 7px; padding-left: 12px; border-left: 2px solid rgba(var(--brand-rgb), .3); }
+.department-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.department-grid label { display: grid; gap: 7px; font-size: .9rem; }
+.department-grid > :last-child { grid-column: 1 / -1; }
+.detail-note { color: var(--muted); margin-bottom: 24px; font-size: .9rem; }
+.detail-empty { padding: 40px 24px; background: var(--bg); border-radius: 14px; text-align: center; }
+.detail-empty h3 { font-size: 1.1rem; margin-bottom: 10px; }
+.detail-empty p { color: var(--muted); }
+.edit-notice { background: var(--bg-soft); padding: 12px 30px; color: var(--muted); font-size: .875rem; }
+.detail-content .esc-culto-card { border: 0; border-radius: 0; }
+.detail-content .esc-culto-head { padding: 0 0 24px; }
+.detail-content .esc-culto-head h3, .detail-content .esc-culto-data { display: none; }
+.detail-content .esc-ministra { margin: 12px 0; }
+.detail-content .esc-ministra-label { font-size: .85rem; }
+.detail-content .esc-ministra select, .detail-content .esc-ministra input, .esc-slot select, .esc-prog-tabela input { font-size: 1rem; }
+.esc-status-btn { min-height: 44px; font-size: .8rem; }
+.esc-prog-tabela input { min-width: 100px; }
+.esc-prog-tabela th { font-size: .8rem; }
+.esc-programa { overflow-x: auto; }
+.print-service { display: none; }
+.esc-form-inline label { display: grid; gap: 6px; font-size: .875rem; }
+@media (max-width: 700px) {
+  .esc-top { padding: 18px 20px; gap: 14px; }
+  .esc-persist { width: 100%; justify-content: space-between; }
+  .esc-status { max-width: none; font-size: .75rem; }
+  .esc-tabs { padding: 0 20px; gap: 20px; }
+  .esc-tab, .organize-menu summary { font-size: .85rem; }
+  .esc-main { padding: 28px 16px 60px; }
+  .agenda-intro { margin-bottom: 30px; }
+  .agenda-intro > .eyebrow { display: none; }
+  .agenda-intro h1 { font-size: 1.75rem; margin-bottom: 0; }
+  .agenda-intro p { display: none; }
+  .desktop-break { display: none; }
+  .agenda-filters { flex-direction: column; gap: 10px; align-items: stretch; }
+  .agenda-card { padding: 20px 16px; gap: 14px; flex-wrap: wrap; }
+  .agenda-date { width: 50px; flex-basis: 50px; padding-right: 12px; }
+  .agenda-card > button { width: 100%; }
+  .agenda-card h3 { font-size: 1rem; }
+  .agenda-leader { font-size: .8rem; }
+  .agenda-card-content { flex-basis: calc(100% - 70px); }
+  .service-heading { padding: 22px 18px; align-items: flex-start; flex-wrap: wrap; }
+  .service-heading h2 { font-size: 1.5rem; }
+  .detail-tabs { padding: 0 12px; gap: 8px; display: grid; grid-template-columns: .8fr 1fr 1.15fr; }
+  .detail-tabs button { font-size: .8rem; min-width: 0; }
+  .detail-content { padding: 22px 16px; }
+  .worship-intro, .team-read, .department-grid { grid-template-columns: 1fr; }
+  .detail-back { align-items: center; }
+  .detail-back button { font-size: .8rem; }
+  .detail-back .btn-outline { padding: 8px; }
+  .edit-notice { padding: 12px 18px; }
+  .order-moment { padding-left: 0; padding-right: 0; gap: 10px; grid-template-columns: 48px 1fr; }
+  .esc-cal-cell { min-width: 0; }
+  .esc-cal-badge { font-size: .65rem; overflow-wrap: anywhere; white-space: normal; }
+  .esc-prog-tabela, .esc-prog-tabela tbody { display: block; width: 100%; min-width: 0; }
+  .esc-prog-tabela thead { display: none; }
+  .esc-prog-tabela tr { display: block; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .esc-prog-tabela td { display: block; width: 100% !important; padding: 5px 0; border: 0; }
+  .esc-prog-tabela input { width: 100%; min-width: 0; }
+  .esc-prog-tabela tr:not(.esc-prog-secao) td:nth-child(1)::before { content: 'Horário'; }
+  .esc-prog-tabela tr:not(.esc-prog-secao) td:nth-child(2)::before { content: 'Momento'; }
+  .esc-prog-tabela tr:not(.esc-prog-secao) td:nth-child(3)::before { content: 'Responsável'; }
+  .esc-prog-tabela tr:not(.esc-prog-secao) td:nth-child(4)::before { content: 'Músicas'; }
+  .esc-prog-tabela td::before { display: block; font-size: .8rem; color: var(--muted); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+@media print {
+  body { background: white; color: black; }
+  .esc-top, .esc-tabs, .detail-back, .detail-tabs, .detail-content, .edit-notice, .service-heading > button, .esc-panel-head, .agenda-intro, .agenda-filters { display: none !important; }
+  .esc-main { padding: 0; max-width: none; }
+  .service-detail { border: 0; }
+  .service-heading { padding: 0 0 20px; }
+  .print-service { display: block; }
+  .print-service > h3 { margin: 24px 0 12px; }
+  .print-service button { display: none; }
+  .print-service input { border: 0; }
+  .order-moment, .team-read li, .department-grid > div { break-inside: avoid; }
+}

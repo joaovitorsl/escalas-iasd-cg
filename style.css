@@ -11,9 +11,9 @@
   --bg-soft: #f2f5f8;
   --text: #22262b;
   --muted: #5c6570;
-  --brand-rgb: 0, 51, 102;
+  --brand-rgb: 91, 48, 142;
   --brand: rgb(var(--brand-rgb));
-  --brand-hover: #004d99;
+  --brand-hover: #45226f;
   --on-brand: #ffffff;
   --red-rgb: 191, 43, 43;
   --red: rgb(var(--red-rgb));
@@ -24,6 +24,7 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 :root[data-theme="dark"] {
+  --on-brand: #10161d;
   --bg: #10161d;
   --bg-soft: #182230;
   --text: #eef2f6;
@@ -35,6 +36,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    --on-brand: #10161d;
     --bg: #10161d;
     --bg-soft: #182230;
     --text: #eef2f6;
