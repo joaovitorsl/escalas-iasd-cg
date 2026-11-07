@@ -47,7 +47,7 @@ const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta"
 const STATUS_LABEL = { aberto: "Aberto", convidado: "A confirmar", confirmado: "Confirmado", recusado: "Não pode" };
 
 /* modelos padrão de programa (ordem do culto), um por tipo de culto recorrente */
-const PROGRAMA_PADRAO = {
+const PROGRAMA_LEGADO = {
   "dom-noite": [
     { hora: "19:00", nome: "Louvores Congregacionais", responsavel: "", musicas: ["Há Um Amigo (HASD 323)", "Jesus é Melhor (HASD 321)", "Mais Semelhante a Jesus (HASD 400)"] },
     { hora: "19:15", nome: "Dízimos e Oferta", responsavel: "", musicas: ["Música de Fundo"] },
@@ -95,6 +95,17 @@ const PROGRAMA_PADRAO = {
     { hora: "", nome: "Hino de Saída", responsavel: "Ministério Jovem", musicas: ["Cada Dia Mais Perto (NHA 459)"] },
   ],
 };
+
+// Keep the legacy seed only to recognize untouched example songs in saved templates.
+// Empty strings preserve one editable field per song, including three-song moments.
+const PROGRAMA_PADRAO = Object.fromEntries(Object.entries(PROGRAMA_LEGADO).map(([id, itens]) => [
+  id, itens.map(item => item.secao ? { ...item } : { ...item, musicas: item.musicas.map(() => "") })
+]));
+function musicasDoModelo(m, item) {
+  const musicas = Array.isArray(item.musicas) ? item.musicas : [];
+  const exemplo = (PROGRAMA_LEGADO[m.id] || []).find(ref => !ref.secao && ref.nome === item.nome && ref.hora === item.hora && JSON.stringify(ref.musicas) === JSON.stringify(musicas));
+  return exemplo ? musicas.map(() => "") : [...musicas];
+}
 
 const NOMES_MODELO_PADRAO = {
   "dom-noite": "Domingo à Noite",
@@ -281,7 +292,7 @@ function normalizarModeloPrograma(m) {
                 hora: item.hora || "",
                 nome: item.nome || "",
                 responsavel: item.responsavel || "",
-                musicas: Array.isArray(item.musicas) ? item.musicas : [],
+                musicas: musicasDoModelo(m, item),
               }
         )
       : [],
