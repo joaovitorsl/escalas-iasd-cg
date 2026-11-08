@@ -109,7 +109,7 @@ const PROGRAMA_LEGADO = {
 // Keep the legacy seed only to recognize untouched example songs in saved templates.
 // Empty strings preserve one editable field per song, including three-song moments.
 const PROGRAMA_PADRAO = Object.fromEntries(Object.entries(PROGRAMA_LEGADO).map(([id, itens]) => [
-  id, itens.map(item => item.secao ? { ...item } : { ...item, responsavel: "", musicas: item.musicas.map(() => "") })
+  id, itens.map(item => item.secao ? { ...item } : { ...item, responsavel: id === "sab-manha" && item.nome === "Avisos" ? "Cosme Alexandre" : "", musicas: item.musicas.map(() => "") })
 ]));
 function musicasDoModelo(m, item) {
   const musicas = Array.isArray(item.musicas) ? item.musicas : [];
@@ -119,6 +119,11 @@ function musicasDoModelo(m, item) {
 
 function responsavelDoModelo(m, item) {
   const responsavel = item.responsavel || "";
+  // Avisos has an explicitly requested default; keep it editable in the site.
+  if (item.nome === "Avisos") {
+    if (!m.avisosResponsavelAtualizado && m.id === "sab-manha" && ["julia", "júlia"].includes(responsavel.trim().toLowerCase())) return "Cosme Alexandre";
+    return responsavel;
+  }
   const exemplo = (PROGRAMA_LEGADO[m.id] || []).some(ref => !ref.secao && ref.nome === item.nome && ref.hora === item.hora && ref.responsavel === responsavel);
   return exemplo ? "" : responsavel;
 }
@@ -298,6 +303,7 @@ function normalizarModeloPrograma(m) {
   return {
     id: m.id,
     nome: m.nome || "Modelo sem nome",
+    avisosResponsavelAtualizado: true,
     itens: Array.isArray(m.itens)
       ? m.itens.map((item) =>
           item.tipo === "secao"
