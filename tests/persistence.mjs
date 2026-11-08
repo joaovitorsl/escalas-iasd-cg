@@ -8,7 +8,7 @@ const listener = source.slice(source.indexOf('function connectCloud()'),source.l
 function setup(local=false) {
  const storage=new Map(); const writes=[];
  const ctx=vm.createContext({LOCAL_PREVIEW:local,STORAGE_KEY:'data',PENDING_STORAGE_KEY:'pending',localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},setTimeout:()=>1,clearTimeout:()=>{},console:{warn(){},error(){}},setDoc:async(_,data)=>{writes.push(data)},docRef:{},updateSaveStatus(){},normalizarEstado:x=>x,ensureUpcomingCultos(){},render(){},loadLocal:()=>JSON.parse(storage.get('data')||'{}')});
- vm.runInContext(`let state={membros:[],cultos:[],tiposCulto:[]};let syncStatus='loading',cloudReady=false,syncErrorCode='',localStorageFailed=false,writeInFlight=false,recoveryNeeded=false,remoteRecoveryState=null,unsubscribeCloud=null,dirty=false;const writeClientId='this-client';let receive,fail;const onSnapshot=(ref,ok,error)=>{receive=ok;fail=error};${functions}${listener}`,ctx);
+ vm.runInContext(`let state={membros:[],cultos:[],tiposCulto:[]};let syncStatus='loading',cloudReady=false,syncErrorCode='',localStorageFailed=false,writeInFlight=false,recoveryNeeded=false,remoteRecoveryState=null,unsubscribeCloud=null,dirty=false;const writeClientId='this-client';let receive,fail;const onSnapshot=(ref,options,ok,error)=>{receive=ok;fail=error};${functions}${listener}`,ctx);
  return {ctx,storage,writes,run:s=>vm.runInContext(s,ctx)};
 }
 const local=setup(true);local.run('persistLocal()');assert.ok(local.storage.has('data'));assert.equal(local.writes.length,0);assert.ok(!local.storage.has('pending'));

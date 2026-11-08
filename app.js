@@ -2539,12 +2539,12 @@ function boot() {
   });
 }
 function connectCloud() {
-  unsubscribeCloud = onSnapshot(docRef, (docSnap) => {
+  unsubscribeCloud = onSnapshot(docRef, { includeMetadataChanges: true }, (docSnap) => {
     if (firestoreDebounceTimer || writeInFlight) return;
     const bruto = docSnap.exists() ? docSnap.data() : {};
     if (bruto._clientId === writeClientId && bruto._seq === ultimoSeqEnviado) return;
     // A local SDK cache is not evidence that the server accepted these data.
-    if (docSnap.metadata.fromCache) return;
+    if (docSnap.metadata.fromCache || docSnap.metadata.hasPendingWrites) return;
     cloudReady = true;
     if (recoveryNeeded || (syncStatus === "error" && localStorage.getItem(PENDING_STORAGE_KEY))) {
       recoveryNeeded = true;

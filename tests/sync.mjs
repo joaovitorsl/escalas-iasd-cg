@@ -27,7 +27,7 @@ await page.route('**/*',async route=>{
  `});
  if(url.pathname.endsWith('firebase-firestore.js')) return route.fulfill({contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:`
  export const getFirestore=()=>({}); export const doc=()=>({});
- export const onSnapshot=(ref,fn)=>{fn({exists:()=>true,metadata:{fromCache:false},data:()=>({membros:[],cultos:[{id:'cloud-service',nome:'Culto de teste',data:'2026-12-20',hora:'19:00',especial:true,slots:[],programa:[]}],tiposCulto:[{id:'test',nome:'Teste',diaSemana:0,hora:'19:00'}]})})};
+ export const onSnapshot=(ref,options,fn)=>{fn({exists:()=>true,metadata:{fromCache:false},data:()=>({membros:[],cultos:[{id:'cloud-service',nome:'Culto de teste',data:'2026-12-20',hora:'19:00',especial:true,slots:[],programa:[]}],tiposCulto:[{id:'test',nome:'Teste',diaSemana:0,hora:'19:00'}]})})};
  export const setDoc=async(ref,data)=>{if(window.failWrite) throw new Error('Simulated offline'); (window.cloudWrites ||= []).push(data);};
  `});
  return route.fulfill({status:404,body:''});
