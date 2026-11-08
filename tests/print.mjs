@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import { renderPrintService } from '../ui/print.js';
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const state = { membros: [{id:'p',nome:'Pessoa de teste'}], gruposMusicais: [], temasCulto: [] };
+const context = { state, escapeHtml, nomeInstrumento: () => 'Piano' };
+const culto = { nome:'Culto <teste>',data:'2026-11-07',hora:'08:45',programa:[{tipo:'secao',titulo:'Escola Sabatina'},{tipo:'momento',hora:'08:45',nome:'Louvor',responsavel:'',musicas:['','','']},{tipo:'momento',hora:'09:00',nome:'Oração',responsavel:'Pessoa de teste',musicas:[]}],slots:[{tipo:'instrumento',membroId:'p',status:'recusado'}],organizacao:{anciao:'Ancião de teste',observacoes:'Orientação <teste>'} };
+const before = JSON.stringify(culto);
+const html = renderPrintService(culto, context);
+assert.equal((html.match(/class="paper-entry paper-blank"/g)||[]).length,3);
+assert.ok(html.includes('07/11/2026'));
+assert.ok(html.includes('Culto &lt;teste&gt;'));
+assert.ok(html.includes('Orientação &lt;teste&gt;'));
+assert.ok(html.includes('Pessoa de teste (substituição necessária)'));
+assert.ok(html.includes('Ancião de teste'));
+assert.ok(!/<input|<button|<select/.test(html));
+assert.equal(JSON.stringify(culto), before);
+assert.ok(renderPrintService({...culto,programa:[]},context).includes('Ordem do culto ainda não preenchida.'));
+console.log('PASS: printable structure, blank song count, escaped data, participation status, empty program, no mutation.');

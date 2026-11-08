@@ -15,10 +15,16 @@ await page.route('**/*',async route=>{
  const url=new URL(route.request().url());
  if(url.hostname==='preview.test') {
    const file=url.pathname==='/'?'index.html':url.pathname.slice(1);
-   if(!['index.html','app.js','ui/agenda.js','style.css','agenda.css'].includes(file)) return route.fulfill({status:404,body:''});
+   if(!['index.html','app.js','ui/agenda.js','ui/print.js','style.css','agenda.css','print.css'].includes(file)) return route.fulfill({status:404,body:''});
    return route.fulfill({contentType:file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html',body:await readFile(`${root}/${file}`,'utf8')});
  }
  if(url.pathname.endsWith('firebase-app.js')) return route.fulfill({contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:'export const initializeApp = () => ({});'});
+ if(url.pathname.endsWith('firebase-auth.js')) return route.fulfill({contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:`
+ export const getAuth=()=>({});
+ export const onAuthStateChanged=(auth,fn)=>fn({email:'joaovitorsilvaluciano@gmail.com',emailVerified:true});
+ export class GoogleAuthProvider { setCustomParameters() {} }
+ export const signInWithPopup=async()=>({}); export const signOut=async()=>{};
+ `});
  if(url.pathname.endsWith('firebase-firestore.js')) return route.fulfill({contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:`
  export const getFirestore=()=>({}); export const doc=()=>({});
  export const onSnapshot=(ref,fn)=>{fn({exists:()=>true,metadata:{fromCache:false},data:()=>({membros:[],cultos:[{id:'cloud-service',nome:'Culto de teste',data:'2026-12-20',hora:'19:00',especial:true,slots:[],programa:[]}],tiposCulto:[{id:'test',nome:'Teste',diaSemana:0,hora:'19:00'}]})})};

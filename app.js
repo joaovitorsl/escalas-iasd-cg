@@ -1,8 +1,13 @@
+import { renderPrintService } from "./ui/print.js";
 import { icon, renderServiceCard } from "./ui/agenda.js";
 // Local previews never connect to the church's shared database.
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 let setDoc, onSnapshot, docRef;
+let firebaseLoadError = null;
+let auth, authApi;
+const AUTHORIZED_EMAILS = ["joaovitorsilvaluciano@gmail.com"];
 if (!LOCAL_PREVIEW) {
+  try {
   const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js");
   const firestore = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
   setDoc = firestore.setDoc;
@@ -18,12 +23,17 @@ if (!LOCAL_PREVIEW) {
   };
 
   const app = initializeApp(firebaseConfig);
+  authApi = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js");
+  auth = authApi.getAuth(app);
+  auth.languageCode = "pt-BR";
   docRef = firestore.doc(firestore.getFirestore(app), "iasd_cg", "estado_global");
+  } catch (error) { firebaseLoadError = error; }
 }
 
 // A single service connects its agenda, worship team, departments and order.
 // Localhost uses only browser storage. Production retains the existing Firestore document.
 const STORAGE_KEY = "viverLouvarEscalas.v1";
+const PENDING_STORAGE_KEY = STORAGE_KEY + ".pending";
 const WEEKS_AHEAD = 8;
 
 const INSTRUMENTOS = [
@@ -408,6 +418,14 @@ let activeTab = "escalas";
 let detalheSecao = "louvor";
 let editandoCulto = false;
 let syncStatus = LOCAL_PREVIEW ? "local" : "loading";
+let cloudReady = false;
+let syncErrorCode = "";
+let localStorageFailed = false;
+let writeInFlight = false;
+const writeClientId = uid();
+let recoveryNeeded = false;
+let remoteRecoveryState = null;
+let unsubscribeCloud = null;
 const CAMPOS_CULTO = [
   ["ministerio", "Ministério responsável"], ["local", "Local"],
   ["anciao", "Ancião"], ["diaconos", "Diáconos"],
@@ -451,13 +469,21 @@ let firestoreDebounceTimer = null;
 let localWriteSeq = 0;
 let ultimoSeqEnviado = -1;
 
-function persistLocal() {
+function cacheState(data, pending = false) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {
-    console.warn("Falha ao guardar neste navegador", e);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    if (pending) localStorage.setItem(PENDING_STORAGE_KEY, JSON.stringify(data));
+    localStorageFailed = false;
+  } catch (error) {
+    localStorageFailed = true;
+    console.warn("Falha ao guardar neste navegador", error);
   }
+}
+function persistLocal() {
+  cacheState(state, !LOCAL_PREVIEW);
   if (LOCAL_PREVIEW) { updateSaveStatus(); return; }
+  // Never replace the shared document with a fallback before a server read succeeds.
+  if (!cloudReady || recoveryNeeded) { updateSaveStatus(); return; }
   syncStatus = "pending";
   updateSaveStatus();
   clearTimeout(firestoreDebounceTimer);
@@ -465,18 +491,30 @@ function persistLocal() {
 }
 async function enviarParaNuvem() {
   firestoreDebounceTimer = null;
+  if (!cloudReady) return;
   const seq = ++localWriteSeq;
   ultimoSeqEnviado = seq;
+  writeInFlight = true;
+  const payload = JSON.parse(JSON.stringify(state));
   try {
-    await setDoc(docRef, { ...state, _seq: seq });
-    if (seq === ultimoSeqEnviado && !firestoreDebounceTimer) syncStatus = "saved";
-    updateSaveStatus();
-  } catch (e) {
+    await setDoc(docRef, { ...payload, _seq: seq, _clientId: writeClientId });
+    if (seq === ultimoSeqEnviado && !firestoreDebounceTimer) {
+      syncStatus = "saved";
+      syncErrorCode = "";
+      try {
+        if (localStorage.getItem(PENDING_STORAGE_KEY) === JSON.stringify(payload)) localStorage.removeItem(PENDING_STORAGE_KEY);
+      } catch (_) { /* The cloud write succeeded even if storage is unavailable. */ }
+    }
+  } catch (error) {
     syncStatus = "error";
+    syncErrorCode = error.code || "";
+    console.error("Erro ao salvar na nuvem:", error);
+  } finally {
+    if (seq === ultimoSeqEnviado) writeInFlight = false;
     updateSaveStatus();
-    console.error("Erro ao salvar na nuvem: ", e);
   }
 }
+
 function markDirty() {
   dirty = true;
   persistLocal();
@@ -711,8 +749,25 @@ function updateSaveStatus() {
     pending: "Salvando alterações…",
     saved: "Alterações salvas na nuvem",
     error: "Sem sincronização · confira sua conexão",
+    recovery: "Alterações locais aguardando revisão",
+    signedout: "Entre para acessar a agenda compartilhada",
   };
-  el.textContent = messages[syncStatus];
+  el.textContent = localStorageFailed
+    ? "Não foi possível guardar a cópia local · baixe uma cópia"
+    : syncStatus === "error" && syncErrorCode.includes("permission-denied")
+      ? "Firebase sem permissão · alterações guardadas neste navegador"
+      : messages[syncStatus];
+  const notice = document.getElementById("syncNotice");
+  let pending = false;
+  try { pending = !!localStorage.getItem(PENDING_STORAGE_KEY); } catch (_) {}
+  notice.hidden = LOCAL_PREVIEW || (!recoveryNeeded && syncStatus !== "error");
+  document.getElementById("syncNoticeText").textContent = syncErrorCode.includes("permission-denied")
+    ? "O Firebase recusou o acesso à agenda. As regras do projeto precisam ser corrigidas pelo administrador. Suas alterações ficam neste navegador; baixe uma cópia para guardá-las."
+    : "Há alterações locais ainda não confirmadas na nuvem. Você pode baixar essa cópia para não perder o trabalho. Ao reabrir, a agenda da nuvem pode ser diferente dessa cópia.";
+  document.getElementById("downloadPending").hidden = !pending;
+  document.getElementById("restorePending").hidden = !recoveryNeeded;
+  document.getElementById("discardPending").hidden = !recoveryNeeded;
+  if (recoveryNeeded) document.getElementById("syncNoticeText").textContent = "Este navegador tem alterações que não chegaram à nuvem. Revise sua cópia antes de escolher: enviá-la substitui a agenda compartilhada; usar a nuvem descarta esta cópia local. Você pode baixar a cópia primeiro.";
 }
 
 function carregarExemplo() {
@@ -1323,7 +1378,7 @@ function cultoDetalheHtml(culto) {
       ${editandoCulto ? '<p class="edit-notice">Modo de edição · as alterações são salvas automaticamente.</p>' : ''}
       <nav class="detail-tabs" aria-label="Informações do culto">${secoes.map(([id, label]) => `<button class="${detalheSecao === id ? 'active' : ''}" aria-label="${label}" aria-pressed="${detalheSecao === id}" data-action="secao-culto" data-secao="${id}" data-culto="${culto.id}">${id === 'louvor' ? 'Louvor' : id === 'igreja' ? 'Departamentos' : label}</button>`).join('')}</nav>
       <div class="detail-content">${conteudo}</div>
-      <div class="print-service"><h3>Equipe de louvor</h3>${louvorLeituraHtml(culto)}<h3>Ordem do culto</h3>${programaLeituraHtml(culto)}<h3>Outros departamentos</h3>${departamentosHtml(culto)}</div>
+      <div class="print-service">${renderPrintService(culto, { state, escapeHtml, nomeInstrumento })}</div>
     </article>`;
 }
 
@@ -1799,7 +1854,13 @@ cultosList.addEventListener("click", (e) => {
   const slot = culto && el.dataset.slot ? culto.slots.find((s) => s.id === el.dataset.slot) : null;
   const action = el.dataset.action;
 
-  if (action === "imprimir-culto") { window.print(); return; }
+  if (action === "imprimir-culto") {
+    const selecionado = state.cultos.find(c => c.id === cultoFiltroId);
+    if (!selecionado) return;
+    document.getElementById("printPreview").innerHTML = renderPrintService(selecionado, { state, escapeHtml, nomeInstrumento });
+    document.getElementById("printDialog").showModal();
+    return;
+  }
   if (action === "abrir-culto" && culto) {
     cultoFiltroId = culto.id;
     detalheSecao = "louvor";
@@ -2377,6 +2438,59 @@ document.getElementById("btnTema").addEventListener("click", () => {
   atualizarBotaoTema();
 });
 
+document.getElementById("printClose").addEventListener("click", () => document.getElementById("printDialog").close());
+document.getElementById("printConfirm").addEventListener("click", () => window.print());
+
+document.getElementById("downloadPending").addEventListener("click", () => {
+  const raw = localStorage.getItem(PENDING_STORAGE_KEY);
+  if (!raw) return;
+  const url = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "agenda-alteracoes-locais.json";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+document.getElementById("restorePending").addEventListener("click", () => {
+  if (!confirm("Enviar a cópia deste navegador? Ela substituirá a agenda compartilhada, incluindo alterações feitas em outros dispositivos.")) return;
+  recoveryNeeded = false;
+  remoteRecoveryState = null;
+  markDirty();
+});
+document.getElementById("discardPending").addEventListener("click", () => {
+  if (!confirm("Usar a agenda da nuvem e descartar as alterações pendentes deste navegador? Se precisar guardá-las, cancele e baixe a cópia primeiro.")) return;
+  localStorage.removeItem(PENDING_STORAGE_KEY);
+  recoveryNeeded = false;
+  state = normalizarEstado(remoteRecoveryState || {});
+  remoteRecoveryState = null;
+  cacheState(state);
+  syncStatus = "saved";
+  updateSaveStatus();
+  render();
+});
+document.getElementById("signIn").addEventListener("click", async () => {
+  const button = document.getElementById("signIn");
+  button.disabled = true;
+  try {
+    const provider = new authApi.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    await authApi.signInWithPopup(auth, provider);
+  } catch (error) {
+    const messages = {
+      "auth/operation-not-allowed": "O administrador precisa ativar a entrada com Google no Firebase Authentication.",
+      "auth/unauthorized-domain": "O administrador precisa autorizar este domínio no Firebase Authentication.",
+      "auth/popup-blocked": "O navegador bloqueou a janela. Permita pop-ups e tente novamente.",
+      "auth/popup-closed-by-user": "A entrada foi cancelada. Você pode tentar novamente."
+    };
+    document.getElementById("authMessage").textContent = messages[error.code] || "Não foi possível entrar. Confira a conexão e tente novamente.";
+  } finally { button.disabled = false; }
+});
+document.getElementById("signOut").addEventListener("click", async () => {
+  if (firestoreDebounceTimer || writeInFlight) { alert("Aguarde o envio das alterações antes de sair."); return; }
+  await authApi.signOut(auth);
+});
+
 /* ── boot ── */
 function boot() {
   document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
@@ -2387,29 +2501,77 @@ function boot() {
   atualizarBotaoTema();
   updateSaveStatus();
   if (LOCAL_PREVIEW) {
+    document.body.classList.remove("auth-required");
     state = loadLocal();
     render();
     return;
   }
-  onSnapshot(docRef, (docSnap) => {
-    // se ainda há uma escrita local agendada (pessoa digitando), não sobrescreve
-    // por cima dela com o que veio da nuvem — a nossa escrita vai sair em seguida
-    if (firestoreDebounceTimer) return;
+  if (firebaseLoadError) {
+    document.getElementById("signIn").disabled = true;
+    document.getElementById("authMessage").textContent = "Não foi possível carregar a conexão. Confira sua internet e recarregue a página. As cópias locais continuam guardadas.";
+    syncStatus = "error";
+    syncErrorCode = firebaseLoadError.code || "";
+    state = loadLocal();
+    updateSaveStatus();
+    render();
+    return;
+  }
+  document.getElementById("signIn").disabled = false;
+  authApi.onAuthStateChanged(auth, user => {
+    if (unsubscribeCloud) unsubscribeCloud();
+    unsubscribeCloud = null;
+    cloudReady = false;
+    const allowed = user && user.emailVerified && AUTHORIZED_EMAILS.includes(user.email?.toLowerCase());
+    document.body.classList.toggle("auth-required", !allowed);
+    document.getElementById("signOut").hidden = !user;
+    document.getElementById("authMessage").textContent = user && !allowed ? "Esta conta ainda não tem acesso. Entre com uma conta autorizada pela igreja." : "Use sua conta Google autorizada para acessar a agenda da igreja.";
+    if (!allowed) {
+      clearTimeout(firestoreDebounceTimer);
+      firestoreDebounceTimer = null;
+      syncStatus = "signedout";
+      updateSaveStatus();
+      return;
+    }
+    recoveryNeeded = !!localStorage.getItem(PENDING_STORAGE_KEY);
+    syncStatus = "loading";
+    updateSaveStatus();
+    connectCloud();
+  });
+}
+function connectCloud() {
+  unsubscribeCloud = onSnapshot(docRef, (docSnap) => {
+    if (firestoreDebounceTimer || writeInFlight) return;
     const bruto = docSnap.exists() ? docSnap.data() : {};
-    // eco da nossa própria escrita (o onSnapshot dispara pra escritas locais
-    // também) — o estado já está refletido aqui, não precisa reprocessar
-    if (typeof bruto._seq === "number" && bruto._seq === ultimoSeqEnviado) return;
+    if (bruto._clientId === writeClientId && bruto._seq === ultimoSeqEnviado) return;
+    // A local SDK cache is not evidence that the server accepted these data.
+    if (docSnap.metadata.fromCache) return;
+    cloudReady = true;
+    if (recoveryNeeded || (syncStatus === "error" && localStorage.getItem(PENDING_STORAGE_KEY))) {
+      recoveryNeeded = true;
+      remoteRecoveryState = bruto;
+      state = normalizarEstado(JSON.parse(localStorage.getItem(PENDING_STORAGE_KEY)));
+      syncStatus = "recovery";
+      updateSaveStatus();
+      render();
+      return;
+    }
     state = normalizarEstado(bruto);
-    syncStatus = docSnap.metadata.fromCache ? "pending" : "saved";
+    cacheState(state); // Cache remote reads too, so fallback is a real agenda.
+    syncStatus = "saved";
+    syncErrorCode = "";
     updateSaveStatus();
     dirty = false;
     ensureUpcomingCultos();
     render();
   }, (error) => {
+    cloudReady = false;
+    clearTimeout(firestoreDebounceTimer);
+    firestoreDebounceTimer = null;
     syncStatus = "error";
-    updateSaveStatus();
+    syncErrorCode = error.code || "";
     console.error("Erro ao escutar o banco:", error);
     state = loadLocal();
+    updateSaveStatus();
     render();
   });
 }

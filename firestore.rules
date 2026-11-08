@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthorized() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ['joaovitorsilvaluciano@gmail.com'];
+    }
+    match /iasd_cg/estado_global {
+      allow read: if isAuthorized();
+      allow create, update: if isAuthorized()
+        && request.resource.data.membros is list
+        && request.resource.data.cultos is list
+        && request.resource.data.tiposCulto is list;
+      allow delete: if false;
+    }
+  }
+}
