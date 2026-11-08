@@ -412,3 +412,4 @@ input[type="checkbox"] { min-height: 18px; width: 18px; height: 18px; flex: 0 0 
 .auth-required .workspace-label { visibility: hidden; }
 .sync-notice { flex-wrap: wrap; }
 .sync-notice p { flex-basis: 100%; }
+.auth-screen > .brand-symbol { display: inline-block; }
