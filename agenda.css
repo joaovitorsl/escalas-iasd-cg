@@ -413,3 +413,8 @@ input[type="checkbox"] { min-height: 18px; width: 18px; height: 18px; flex: 0 0 
 .sync-notice { flex-wrap: wrap; }
 .sync-notice p { flex-basis: 100%; }
 .auth-screen > .brand-symbol { display: inline-block; }
+
+.program-template-picker { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 18px; margin-bottom: 20px; border: 1px solid var(--line); border-radius: 14px; }
+.program-template-picker label { display: grid; gap: 7px; flex: 1 1 240px; font-weight: 600; }
+.program-template-picker select { width: 100%; min-width: 0; }
+.program-template-picker p { flex-basis: 100%; margin: 0; color: var(--muted); font-size: .85rem; }

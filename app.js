@@ -1225,6 +1225,16 @@ function programaTabelaHtml(culto) {
     .join("");
   return `
     <div class="esc-programa">
+      <div class="program-template-picker">
+        <label for="program-template-${culto.id}">Modelo de culto
+          <select id="program-template-${culto.id}">
+            <option value="">Selecione um modelo</option>
+            ${state.modelosPrograma.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.nome)}</option>`).join("")}
+          </select>
+        </label>
+        <button class="btn-outline" data-action="prog-aplicar-modelo" data-culto="${culto.id}">Aplicar modelo</button>
+        <p>Use um modelo como ponto de partida e ajuste os momentos deste culto.</p>
+      </div>
       <table class="esc-prog-tabela">
         <thead><tr><th>Hora</th><th>Momento</th><th>Responsável</th><th>Música(s)</th><th></th></tr></thead>
         <tbody>${linhas || `<tr><td colspan="5" class="esc-prog-vazio">Sem programa definido ainda.</td></tr>`}</tbody>
@@ -1337,7 +1347,7 @@ function cultoResumoHtml(culto, primeiro) {
 }
 
 function programaLeituraHtml(culto) {
-  if (!(culto.programa || []).length) return `<div class="detail-empty"><h3>A ordem do culto ainda não foi preparada</h3><p>Quem organiza pode usar “Editar” para adicionar os momentos, responsáveis e músicas.</p></div>`;
+  if (!(culto.programa || []).length) return `<div class="detail-empty"><h3>A ordem do culto ainda não foi preparada</h3><p>Use “Editar” para selecionar um modelo ou adicionar os momentos, responsáveis e músicas.</p></div>`;
   return `<ol class="service-order">${culto.programa.map(item => item.tipo === "secao"
     ? `<li class="order-section">${escapeHtml(item.titulo)}</li>`
     : `<li class="order-moment"><span class="order-time">${escapeHtml(item.hora || "—")}</span><div><h3>${escapeHtml(item.nome || "Momento sem nome")}</h3>${item.responsavel ? `<p class="order-person">${escapeHtml(item.responsavel)}</p>` : ''}${(item.musicas || []).filter(Boolean).map(m => `<p class="order-song">${escapeHtml(m)}</p>`).join('')}</div></li>`).join('')}</ol>`;
@@ -1950,6 +1960,18 @@ cultosList.addEventListener("click", (e) => {
   } else if (action === "toggle-programa" && culto) {
     if (programaAberto.has(culto.id)) programaAberto.delete(culto.id);
     else programaAberto.add(culto.id);
+    render();
+  } else if (action === "prog-aplicar-modelo" && culto) {
+    const select = document.getElementById(`program-template-${culto.id}`);
+    const modelo = state.modelosPrograma.find(m => m.id === select.value);
+    if (!modelo) {
+      select.focus();
+      return;
+    }
+    if ((culto.programa || []).length && !confirm(`Aplicar o modelo “${modelo.nome}”? A ordem atual deste culto, incluindo músicas e responsáveis, será substituída. A equipe escalada será mantida.`)) return;
+    culto.programa = defaultPrograma(modelo.id);
+    culto.modeloProgramaId = modelo.id;
+    markDirty();
     render();
   } else if (action === "prog-add-momento" && culto) {
     culto.programa = culto.programa || [];
