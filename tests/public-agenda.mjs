@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { publicAgenda } from '../ui/public-agenda.js';
+const source={membros:[{id:'p',nome:'Pessoa',telefone:'privado',observacoes:'privado',indisponibilidades:['privado']},{id:'nao-escalado',nome:'Não publicar'}],cultos:[{id:'c',data:'2026-12-20',nome:'Culto',slots:[{id:'s',membroId:'p',status:'confirmado',segredo:'privado'}],organizacao:{local:'Igreja',observacoes:'privado'},programa:[{nome:'Louvor',responsavel:'Pessoa',musicas:['Música']}]}],modelosPrograma:[{segredo:'privado'}]};
+const result=publicAgenda(source);
+assert.equal(result.membros.length,1);
+assert.deepEqual(result.membros[0],{id:'p',nome:'Pessoa'});
+assert.equal(JSON.stringify(result).includes('privado'),false);
+assert.equal(result.cultos[0].slots[0].status,'confirmado');
+assert.equal(result.cultos[0].programa[0].musicas[0],'Música');
+assert.deepEqual(result.modelosPrograma,[]);
+assert.equal(publicAgenda().cultos.length,0);
+assert.deepEqual(publicAgenda(result),result);
+result.cultos[0].programa[0].musicas.push('Outra');
+assert.equal(source.cultos[0].programa[0].musicas.length,1);
+console.log('PASS: public projection excludes private records, contacts, notes and availability; keeps schedule and status; empty agenda has no seeds.');

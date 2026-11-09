@@ -21,7 +21,7 @@
     })();
   </script>
 </head>
-<body class="auth-required">
+<body class="read-only">
 
   <aside class="app-sidebar">
     <div class="app-brand"><span class="brand-symbol" aria-hidden="true">c<span>•</span></span><div><strong>central<span>.</span></strong><small>JUNTOS NO LOUVOR</small></div></div>
@@ -38,10 +38,12 @@
     </nav>
     <div class="sidebar-church"><span class="church-monogram">CG</span><div><strong>IASD Central</strong><small>Campina Grande · PB</small></div></div>
   </aside>
-  <header class="esc-top"><div class="workspace-label">Nossa igreja <span>/</span> <strong id="workspaceTitle">Agenda de cultos</strong></div><div class="esc-persist"><span class="esc-status" id="saveStatus" role="status" aria-live="polite">carregando…</span><button class="esc-link" id="signOut" type="button" hidden>Sair</button><button class="esc-icon-btn" id="btnTema" type="button" title="Alternar tema claro/escuro"></button></div></header>
+  <header class="esc-top"><div class="workspace-label">Nossa igreja <span>/</span> <strong id="workspaceTitle">Agenda de cultos</strong></div><div class="esc-persist"><span class="esc-status" id="saveStatus" role="status" aria-live="polite">carregando…</span><button class="btn-outline" id="signIn" type="button" disabled>Entrar para editar</button><button class="esc-link" id="signOut" type="button" hidden>Sair</button><button class="esc-icon-btn" id="btnTema" type="button" title="Alternar tema claro/escuro"></button></div></header>
 
-  <section class="auth-screen"><span class="brand-symbol" aria-hidden="true">c<span>•</span></span><h1>Vamos preparar<br>o próximo culto.</h1><p id="authMessage">Use sua conta Google autorizada para acessar a agenda da igreja.</p><button class="btn-fill" id="signIn" type="button" disabled>Entrar com Google</button></section>
   <main class="esc-main">
+    <p id="authMessage" role="status"></p>
+    <p id="publicMessage" role="status"></p>
+    <aside id="publicPublishNotice" class="sync-notice" hidden><p>A agenda da equipe está salva, mas a versão pública não foi atualizada. Confira as regras do Firebase e tente novamente.</p><button id="retryPublicPublish" class="btn-outline">Atualizar agenda pública</button></aside>
     <aside class="sync-notice" id="syncNotice" role="status" hidden><p id="syncNoticeText"></p><button class="btn-outline" id="downloadPending" type="button">Baixar alterações locais</button><button class="btn-fill" id="restorePending" type="button" hidden>Enviar cópia local</button><button class="btn-outline" id="discardPending" type="button" hidden>Usar agenda da nuvem</button></aside>
 
     <!-- ───── ESCALAS ───── -->

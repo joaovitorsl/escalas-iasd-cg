@@ -60,3 +60,11 @@ A apresentação está em `ui/print.js` e `print.css`. Execute `node tests/print
 No projeto `escala-central-745a9`, ativar Google em Authentication → Sign-in method e incluir `joaovitorsl.github.io` em Authorized domains. Publicar `firestore.rules` no Firestore Console. As regras antigas expiraram em 29/08/2026 e negavam leitura e gravação. A regra nova permite apenas contas verificadas da lista, no documento `iasd_cg/estado_global`. Não permite apagar o documento inteiro. Para ampliar a equipe autorizada, atualizar a lista das regras e `AUTHORIZED_EMAILS` no cliente.
 
 Dados digitados em localhost ficam somente naquele navegador; não são enviados à nuvem automaticamente. O site guarda uma cópia local das leituras da nuvem e mantém uma cópia separada das alterações aguardando envio. Em caso de permissão negada, não tenta substituir o banco com um estado vazio.
+
+### Consulta pública e presença rápida
+
+Visitantes consultam lista, calendário, equipe, ordem do culto e impressão sem login. A edição e os botões de presença (Confirmar / Não pode / A confirmar), diretamente no cartão da pessoa, exigem conta autorizada. Localhost continua sendo uma prévia editável, sem conexão ao Firebase.
+
+A leitura pública usa exclusivamente `agenda_publica/atual`; `iasd_cg/estado_global` permanece privado. `ui/public-agenda.js` cria uma cópia com campos permitidos, sem contatos, indisponibilidades, observações internas ou cadastro de pessoas não escaladas. Ao entrar com conta autorizada, a leitura confirmada do documento privado publica a cópia; gravações seguintes atualizam essa cópia após salvar o original. Falhas na publicação mostram um aviso com nova tentativa e não impedem salvar o documento privado. Há uma pequena janela entre a gravação privada e a atualização pública; não é uma transação entre os dois documentos.
+
+Para ativar, publicar as regras atualizadas e abrir o site com uma conta autorizada uma vez. Sem documento público, o visitante vê uma mensagem de preparação; o app não inventa uma agenda nem usa o cache privado. Testes: `node tests/public-agenda.mjs`, `node tests/persistence.mjs` e `node tests/print.mjs`.

@@ -35,6 +35,7 @@ jobs:
         run: |
           node tests/persistence.mjs
           node tests/print.mjs
+          node tests/public-agenda.mjs
       - name: Prepare site
         run: |
           mkdir -p _site

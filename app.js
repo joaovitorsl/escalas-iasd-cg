@@ -1,8 +1,11 @@
+import { publicAgenda } from "./ui/public-agenda.js";
 import { renderPrintService } from "./ui/print.js";
 import { icon, renderServiceCard } from "./ui/agenda.js";
 // Local previews never connect to the church's shared database.
 const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
-let setDoc, onSnapshot, docRef;
+let setDoc, onSnapshot, docRef, publicDocRef;
+let canEdit = LOCAL_PREVIEW;
+let publicPublishChain = Promise.resolve();
 let firebaseLoadError = null;
 let auth, authApi;
 const AUTHORIZED_EMAILS = ["joaovitorsilvaluciano@gmail.com"];
@@ -26,6 +29,7 @@ if (!LOCAL_PREVIEW) {
   authApi = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js");
   auth = authApi.getAuth(app);
   auth.languageCode = "pt-BR";
+  publicDocRef = firestore.doc(firestore.getFirestore(app), "agenda_publica", "atual");
   docRef = firestore.doc(firestore.getFirestore(app), "iasd_cg", "estado_global");
   } catch (error) { firebaseLoadError = error; }
 }
@@ -486,6 +490,7 @@ function cacheState(data, pending = false) {
   }
 }
 function persistLocal() {
+  if (!canEdit) return;
   cacheState(state, !LOCAL_PREVIEW);
   if (LOCAL_PREVIEW) { updateSaveStatus(); return; }
   // Never replace the shared document with a fallback before a server read succeeds.
@@ -497,13 +502,14 @@ function persistLocal() {
 }
 async function enviarParaNuvem() {
   firestoreDebounceTimer = null;
-  if (!cloudReady) return;
+  if (!cloudReady || !canEdit) return;
   const seq = ++localWriteSeq;
   ultimoSeqEnviado = seq;
   writeInFlight = true;
   const payload = JSON.parse(JSON.stringify(state));
   try {
     await setDoc(docRef, { ...payload, _seq: seq, _clientId: writeClientId });
+    publishPublicAgenda(payload);
     if (seq === ultimoSeqEnviado && !firestoreDebounceTimer) {
       syncStatus = "saved";
       syncErrorCode = "";
@@ -749,6 +755,11 @@ document.getElementById("csvInput").addEventListener("change", async (e) => {
 function updateSaveStatus() {
   const el = document.getElementById("saveStatus");
   if (!el) return;
+  if (!canEdit) {
+    el.textContent = syncStatus === "loading" ? "Carregando agenda…" : "Agenda pública · somente leitura";
+    document.getElementById("syncNotice").hidden = true;
+    return;
+  }
   const messages = {
     local: "Prévia local · dados só neste navegador",
     loading: "Conectando à agenda…",
@@ -826,6 +837,7 @@ const HORIZONTE_INICIO_ISO = "2026-07-26";
 
 /* ── geração automática dos próximos cultos recorrentes ── */
 function ensureUpcomingCultos() {
+  if (!canEdit) return;
   const hoje = new Date();
   const anchorHistorico = parseISO(HORIZONTE_INICIO_ISO);
   const fimJanelaRolante = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + WEEKS_AHEAD * 7);
@@ -1353,7 +1365,7 @@ function cultoResumoHtml(culto, primeiro) {
 }
 
 function programaLeituraHtml(culto) {
-  if (!(culto.programa || []).length) return `<div class="detail-empty"><h3>A ordem do culto ainda não foi preparada</h3><p>Use “Editar” para selecionar um modelo ou adicionar os momentos, responsáveis e músicas.</p></div>`;
+  if (!(culto.programa || []).length) return `<div class="detail-empty"><h3>A ordem do culto ainda não foi preparada</h3><p>${canEdit ? "Use ‘Editar’ para selecionar um modelo ou adicionar os momentos, responsáveis e músicas." : "A programação será exibida aqui quando estiver pronta."}</p></div>`;
   return `<ol class="service-order">${culto.programa.map(item => item.tipo === "secao"
     ? `<li class="order-section">${escapeHtml(item.titulo)}</li>`
     : `<li class="order-moment"><span class="order-time">${escapeHtml(item.hora || "—")}</span><div><h3>${escapeHtml(item.nome || "Momento sem nome")}</h3>${item.responsavel ? `<p class="order-person">${escapeHtml(item.responsavel)}</p>` : ''}${(item.musicas || []).filter(Boolean).map(m => `<p class="order-song">${escapeHtml(m)}</p>`).join('')}</div></li>`).join('')}</ol>`;
@@ -1368,7 +1380,7 @@ function louvorLeituraHtml(culto) {
       `<ul class="team-read">${slots.map(slot => {
         const pessoa = state.membros.find(m => m.id === slot.membroId);
         const papel = slot.tipo === 'instrumento' ? nomeInstrumento(slot.instrumento) : slot.tipo === 'solo' ? 'Música especial' : slot.naipeAlvo || 'Voz';
-        return `<li><div><span class="eyebrow">${escapeHtml(papel)}</span><strong>${escapeHtml(pessoa ? pessoa.nome : slot.membroId ? 'Pessoa não encontrada' : 'Pessoa a definir')}</strong></div><span class="service-status ${pessoa && slot.status === 'confirmado' ? 'confirmed' : 'pending'}">${pessoa ? STATUS_LABEL[slot.status] || 'A confirmar' : 'Vaga aberta'}</span></li>`;
+        return `<li><div><span class="eyebrow">${escapeHtml(papel)}</span><strong>${escapeHtml(pessoa ? pessoa.nome : slot.membroId ? 'Pessoa não encontrada' : 'Pessoa a definir')}</strong></div>${canEdit && pessoa ? `<div class="quick-status" role="group" aria-label="Presença de ${escapeHtml(pessoa.nome)}">${[["confirmado","Confirmar"],["recusado","Não pode"],["convidado","A confirmar"]].map(([status,label]) => `<button class="btn-outline ${slot.status === status ? "active" : ""}" data-action="status-slot" data-culto="${culto.id}" data-slot="${slot.id}" data-status="${status}" aria-pressed="${slot.status === status}">${slot.status === "confirmado" && status === "confirmado" ? "✓ Confirmado" : label}</button>`).join("")}</div>` : ""}<span class="service-status ${pessoa && slot.status === 'confirmado' ? 'confirmed' : 'pending'}">${pessoa ? STATUS_LABEL[slot.status] || 'A confirmar' : 'Vaga aberta'}</span></li>`;
       }).join('')}</ul>${!slots.length ? '<p class="detail-note">Nenhuma vaga de louvor cadastrada para este culto.</p>' : ''}`}
     <button class="btn-outline" data-action="secao-culto" data-secao="programa" data-culto="${culto.id}">Ver músicas na ordem do culto →</button>`;
 }
@@ -1376,7 +1388,7 @@ function louvorLeituraHtml(culto) {
 function departamentosHtml(culto) {
   const dados = culto.organizacao || {};
   return `<p class="detail-note">Os responsáveis e orientações ficam junto da escala de louvor. A pregação e os demais momentos são preenchidos na ordem do culto.</p>
-    <div class="department-grid">${CAMPOS_CULTO.map(([key, label]) => editandoCulto
+    <div class="department-grid">${CAMPOS_CULTO.filter(([key]) => canEdit || key !== "observacoes").map(([key, label]) => editandoCulto
       ? `<label>${label}<input type="text" data-action="organizacao" data-field="${key}" data-culto="${culto.id}" value="${escapeHtml(dados[key] || '')}" placeholder="A definir" /></label>`
       : `<div><span class="eyebrow">${label}</span><p>${escapeHtml(dados[key] || 'A definir')}</p></div>`).join('')}</div>`;
 }
@@ -1390,7 +1402,7 @@ function cultoDetalheHtml(culto) {
   return `<div class="detail-back"><button class="esc-link" data-action="limpar-filtro-culto">← Voltar para a agenda</button><button class="btn-outline" data-action="imprimir-culto">Imprimir culto</button></div>
     <article class="service-detail">
       <header class="service-heading"><div><p class="eyebrow">${formatDataLonga(culto.data)} · ${escapeHtml(culto.hora || 'Horário a definir')}</p><h2 tabindex="-1" id="cultoTitulo">${escapeHtml(culto.nome)}</h2><span class="service-status ${status.classe}">${status.texto}</span></div>
-      <button class="${editandoCulto ? 'btn-fill' : 'btn-outline'}" data-action="editar-culto" data-culto="${culto.id}">${editandoCulto ? 'Concluir edição' : 'Editar'}</button></header>
+      <button ${canEdit ? "" : "hidden"} class="${editandoCulto ? 'btn-fill' : 'btn-outline'}" data-action="editar-culto" data-culto="${culto.id}">${editandoCulto ? 'Concluir edição' : 'Editar'}</button></header>
       ${editandoCulto ? '<p class="edit-notice">Modo de edição · as alterações são salvas automaticamente.</p>' : ''}
       <nav class="detail-tabs" aria-label="Informações do culto">${secoes.map(([id, label]) => `<button class="${detalheSecao === id ? 'active' : ''}" aria-label="${label}" aria-pressed="${detalheSecao === id}" data-action="secao-culto" data-secao="${id}" data-culto="${culto.id}">${id === 'louvor' ? 'Louvor' : id === 'igreja' ? 'Departamentos' : label}</button>`).join('')}</nav>
       <div class="detail-content">${conteudo}</div>
@@ -1414,7 +1426,7 @@ function renderListaCultos() {
     (!busca || [c.nome, c.data, formatDataLonga(c.data), state.temasCulto.find(t => t.id === c.temaId)?.nome, c.organizacao?.ministerio].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(busca)))
     .sort((a,b) => (a.data + a.hora).localeCompare(b.data + b.hora));
   const proximo = state.cultos.filter(c => c.data >= todayISO()).sort((a,b) => (a.data + a.hora).localeCompare(b.data + b.hora))[0];
-  container.innerHTML = lista.length ? lista.map((c, i) => { const month = c.data.slice(0, 7); const heading = i === 0 || lista[i - 1].data.slice(0, 7) !== month; return `${heading ? `<h3 class="agenda-month">${parseISO(c.data).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h3>` : ''}${cultoResumoHtml(c, c.id === proximo?.id)}`; }).join('') : '<div class="detail-empty"><h3>Nenhum culto encontrado</h3><p>Tente outro dia ou outra busca. Você também pode adicionar um culto.</p></div>';
+  container.innerHTML = lista.length ? lista.map((c, i) => { const month = c.data.slice(0, 7); const heading = i === 0 || lista[i - 1].data.slice(0, 7) !== month; return `${heading ? `<h3 class="agenda-month">${parseISO(c.data).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h3>` : ''}${cultoResumoHtml(c, c.id === proximo?.id)}`; }).join('') : `<div class="detail-empty"><h3>Nenhum culto encontrado</h3><p>Tente outro dia ou outra busca. ${canEdit ? "Você também pode adicionar um culto." : ""}</p></div>`;
   document.getElementById("agendaCount").textContent = `${lista.length} ${lista.length === 1 ? 'culto' : 'cultos'}`;
 }
 
@@ -1745,7 +1757,7 @@ function render() {
 /* ── abas ── */
 document.getElementById("tabsNav").addEventListener("click", (e) => {
   const btn = e.target.closest(".esc-tab");
-  if (!btn) return;
+  if (!btn || (!canEdit && btn.dataset.tab !== "escalas")) return;
   activeTab = btn.dataset.tab;
   document.querySelector(".organize-menu").classList.toggle("has-active", !["escalas", "equipe"].includes(activeTab));
   if (window.matchMedia("(max-width: 760px)").matches) document.querySelector(".organize-menu").open = false;
@@ -1892,6 +1904,7 @@ cultosList.addEventListener("click", (e) => {
     return;
   }
   if (action === "editar-culto" && culto) {
+    if (!canEdit) return;
     editandoCulto = !editandoCulto;
     renderListaCultos();
     document.querySelector('[data-action="editar-culto"]').focus();
@@ -1930,7 +1943,7 @@ cultosList.addEventListener("click", (e) => {
     culto.slots.push({ id: uid(), tipo: "solo", membroId: null, status: "aberto" });
     markDirty();
     render();
-  } else if (action === "status-slot" && culto && slot) {
+  } else if (action === "status-slot" && canEdit && culto && slot) {
     slot.status = el.dataset.status;
     if (slot.membroId) {
       const membro = state.membros.find((m) => m.id === slot.membroId);
@@ -2516,6 +2529,7 @@ document.getElementById("signIn").addEventListener("click", async () => {
 });
 document.getElementById("signOut").addEventListener("click", async () => {
   if (firestoreDebounceTimer || writeInFlight) { alert("Aguarde o envio das alterações antes de sair."); return; }
+  await publicPublishChain;
   await authApi.signOut(auth);
 });
 
@@ -2529,7 +2543,8 @@ function boot() {
   atualizarBotaoTema();
   updateSaveStatus();
   if (LOCAL_PREVIEW) {
-    document.body.classList.remove("auth-required");
+    document.body.classList.remove("read-only");
+    document.getElementById("signIn").hidden = true;
     state = loadLocal();
     render();
     return;
@@ -2539,7 +2554,8 @@ function boot() {
     document.getElementById("authMessage").textContent = "Não foi possível carregar a conexão. Confira sua internet e recarregue a página. As cópias locais continuam guardadas.";
     syncStatus = "error";
     syncErrorCode = firebaseLoadError.code || "";
-    state = loadLocal();
+    state = publicAgenda();
+    document.getElementById("publicMessage").textContent = "Não foi possível conectar à agenda. Recarregue para tentar novamente.";
     updateSaveStatus();
     render();
     return;
@@ -2550,14 +2566,28 @@ function boot() {
     unsubscribeCloud = null;
     cloudReady = false;
     const allowed = user && user.emailVerified && AUTHORIZED_EMAILS.includes(user.email?.toLowerCase());
-    document.body.classList.toggle("auth-required", !allowed);
+    canEdit = !!allowed;
+    document.body.classList.toggle("read-only", !canEdit);
+    document.getElementById("signIn").hidden = canEdit;
+    document.getElementById("publicMessage").textContent = "";
+    document.getElementById("publicPublishNotice").hidden = true;
+    editandoCulto = false;
+    activeTab = "escalas";
+    document.querySelectorAll(".esc-tab").forEach(b => b.classList.toggle("active", b.dataset.tab === "escalas"));
+    document.querySelectorAll(".esc-panel").forEach(p => p.classList.toggle("active", p.id === "panel-escalas"));
+    document.getElementById("workspaceTitle").textContent = "Agenda de cultos";
     document.getElementById("signOut").hidden = !user;
-    document.getElementById("authMessage").textContent = user && !allowed ? "Esta conta ainda não tem acesso. Entre com uma conta autorizada pela igreja." : "Use sua conta Google autorizada para acessar a agenda da igreja.";
+    document.getElementById("authMessage").textContent = "";
     if (!allowed) {
       clearTimeout(firestoreDebounceTimer);
       firestoreDebounceTimer = null;
-      syncStatus = "signedout";
+      recoveryNeeded = false;
+      state = publicAgenda();
+      syncStatus = "loading";
+      document.getElementById("authMessage").textContent = user ? "Esta conta pode consultar a agenda, mas não tem permissão para editar." : "";
       updateSaveStatus();
+      render();
+      connectPublicAgenda();
       return;
     }
     recoveryNeeded = !!localStorage.getItem(PENDING_STORAGE_KEY);
@@ -2566,8 +2596,41 @@ function boot() {
     connectCloud();
   });
 }
+function publishPublicAgenda(data) {
+  if (LOCAL_PREVIEW || !canEdit || !cloudReady) return;
+  const payload = publicAgenda(data);
+  publicPublishChain = publicPublishChain.then(async () => {
+    if (!canEdit) return;
+    try {
+      await setDoc(publicDocRef, payload);
+      document.getElementById("publicPublishNotice").hidden = true;
+    } catch (error) {
+      document.getElementById("publicPublishNotice").hidden = false;
+      console.warn("Agenda pública ainda não atualizada", error.code);
+    }
+  });
+}
+document.getElementById("retryPublicPublish").addEventListener("click", () => publishPublicAgenda(state));
+function connectPublicAgenda() {
+  unsubscribeCloud = onSnapshot(publicDocRef, snapshot => {
+    if (canEdit) return;
+    state = publicAgenda(snapshot.exists() ? snapshot.data() : {});
+    syncStatus = "public";
+    document.getElementById("publicMessage").textContent = snapshot.exists() ? "" : "A agenda pública ainda está sendo preparada. Volte em breve.";
+    updateSaveStatus();
+    render();
+  }, () => {
+    if (canEdit) return;
+    state = publicAgenda();
+    syncStatus = "public";
+    document.getElementById("publicMessage").textContent = "A agenda pública está temporariamente indisponível. Tente novamente mais tarde.";
+    updateSaveStatus();
+    render();
+  });
+}
 function connectCloud() {
   unsubscribeCloud = onSnapshot(docRef, { includeMetadataChanges: true }, (docSnap) => {
+    if (!canEdit) return;
     if (firestoreDebounceTimer || writeInFlight) return;
     const bruto = docSnap.exists() ? docSnap.data() : {};
     if (bruto._clientId === writeClientId && bruto._seq === ultimoSeqEnviado) return;
@@ -2590,8 +2653,10 @@ function connectCloud() {
     updateSaveStatus();
     dirty = false;
     ensureUpcomingCultos();
+    publishPublicAgenda(state);
     render();
   }, (error) => {
+    if (!canEdit) return;
     cloudReady = false;
     clearTimeout(firestoreDebounceTimer);
     firestoreDebounceTimer = null;

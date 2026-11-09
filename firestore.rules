@@ -6,6 +6,14 @@ service cloud.firestore {
         && request.auth.token.email_verified == true
         && request.auth.token.email in ['joaovitorsilvaluciano@gmail.com'];
     }
+    match /agenda_publica/atual {
+      allow get: if true;
+      allow create, update: if isAuthorized()
+        && request.resource.data.keys().hasOnly(['versao', 'cultos', 'membros', 'gruposMusicais', 'temasCulto', 'tiposCulto', 'modelosPrograma', 'cultosRemovidos'])
+        && request.resource.data.cultos is list
+        && request.resource.data.membros is list;
+      allow delete, list: if false;
+    }
     match /iasd_cg/estado_global {
       allow read: if isAuthorized();
       allow create, update: if isAuthorized()

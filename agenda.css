@@ -418,3 +418,14 @@ input[type="checkbox"] { min-height: 18px; width: 18px; height: 18px; flex: 0 0 
 .program-template-picker label { display: grid; gap: 7px; flex: 1 1 240px; font-weight: 600; }
 .program-template-picker select { width: 100%; min-width: 0; }
 .program-template-picker p { flex-basis: 100%; margin: 0; color: var(--muted); font-size: .85rem; }
+
+.read-only .esc-tab[data-tab="equipe"], .read-only .organize-menu, .read-only #btnNovoEspecial { display: none; }
+.read-only .esc-tabs { grid-template-columns: 1fr; }
+#authMessage:empty, #publicMessage:empty { display: none; }
+#authMessage, #publicMessage { max-width: 1120px; margin: 0 auto 20px; color: var(--muted); }
+.quick-status { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.quick-status .btn-outline { padding: 8px 12px; font-size: .8rem; }
+.quick-status .active { border-color: var(--brand); background: rgba(var(--brand-rgb), .12); color: var(--brand); }
+.team-read li:has(.quick-status) { flex-wrap: wrap; gap: 14px; }
+.team-read li:has(.quick-status) > .service-status { display: none; }
+@media (max-width: 760px) { .quick-status { margin-left: 0; width: 100%; } }
