@@ -2507,6 +2507,7 @@ document.getElementById("discardPending").addEventListener("click", () => {
   remoteRecoveryState = null;
   cacheState(state);
   syncStatus = "saved";
+  publishPublicAgenda(state);
   updateSaveStatus();
   render();
 });
@@ -2529,7 +2530,6 @@ document.getElementById("signIn").addEventListener("click", async () => {
 });
 document.getElementById("signOut").addEventListener("click", async () => {
   if (firestoreDebounceTimer || writeInFlight) { alert("Aguarde o envio das alterações antes de sair."); return; }
-  await publicPublishChain;
   await authApi.signOut(auth);
 });
 
@@ -2605,7 +2605,7 @@ function publishPublicAgenda(data) {
       await setDoc(publicDocRef, payload);
       document.getElementById("publicPublishNotice").hidden = true;
     } catch (error) {
-      document.getElementById("publicPublishNotice").hidden = false;
+      document.getElementById("publicPublishNotice").hidden = !canEdit;
       console.warn("Agenda pública ainda não atualizada", error.code);
     }
   });
